@@ -60,7 +60,7 @@ def main(args):
             plt.ion()
         for step in range(episode_len):
             # 通过脚本策略产生 EE 动作
-            action = policy(ts)
+            action = policy(ts) # 这里调用__call__方法
             # EE 环境内部会将 EE 动作转为关节控制并推进仿真
             ts = env.step(action)
             episode.append(ts)

@@ -73,7 +73,7 @@ class PickAndTransferPolicy(BasePolicy):
         init_mocap_pose_right = ts_first.observation['mocap_pose_right']
         init_mocap_pose_left = ts_first.observation['mocap_pose_left']
 
-        box_info = np.array(ts_first.observation['env_state'])
+        box_info = np.array(ts_first.observation['env_state']) # 获取箱体位姿,箱体是7维的，分别是xyz+quat。箱体在此处表示被抓取的物体
         box_xyz = box_info[:3]
         box_quat = box_info[3:]
         # print(f"Generate trajectory for {box_xyz=}")

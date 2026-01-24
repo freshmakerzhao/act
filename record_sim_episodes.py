@@ -59,7 +59,7 @@ def main(args):
             plt_img = ax.imshow(ts.observation['images'][render_cam_name])
             plt.ion()
         for step in range(episode_len):
-            # 通过脚本策略产生 EE 动作
+            # 这里action拿到的是当前ts下计算得到的xyz、quat、gripper,一维，size=8
             action = policy(ts) # 这里调用__call__方法
             # EE 环境内部会将 EE 动作转为关节控制并推进仿真
             ts = env.step(action)

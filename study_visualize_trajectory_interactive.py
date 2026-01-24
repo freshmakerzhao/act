@@ -1,4 +1,4 @@
-# 文件名：visualize_trajectory_interactive.py
+# 文件名：visualize_trajectory_interactive.py，可视化关键路点轨迹，按钮控制切换路点
 
 import numpy as np
 import matplotlib.pyplot as plt

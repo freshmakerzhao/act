@@ -1,4 +1,4 @@
-# interactive_box.py
+# interactive_box.py，通过键盘交互控制箱子位置，方便理解mujoco坐标系
 
 from ee_sim_env import make_ee_sim_env
 import matplotlib.pyplot as plt

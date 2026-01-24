@@ -1,3 +1,4 @@
+from curses.ascii import ctrl
 import numpy as np
 import collections
 import os
@@ -57,7 +58,7 @@ class BimanualViperXEETask(base.Task):
     def __init__(self, random=None):
         super().__init__(random=random)
 
-    # 在物理仿真之前执行
+    # 在物理仿真之前执行，physics 是 mujoco.Physics 类的实例，是 MuJoCo 物理引擎的 Python 接口，包含了整个仿真世界的所有状态和配置。
     def before_step(self, action, physics):
         # 分别拿到左和右双臂的xyz、四元数和夹爪状态
         a_len = len(action) // 2
@@ -65,7 +66,10 @@ class BimanualViperXEETask(base.Task):
         action_right = action[a_len:]
 
         # set mocap position and quat，设置mocap的位置和姿态，mujoco中能够通过mocap控制末端执行器的位置和姿态
-        # left
+        # left，将action_left拷贝到physics.data.mocap_pos[0]
+        # physics包含model和data：
+        # model, 从xml中加载，主要包含静态配置
+        # data, 动态状态，每步更新（mjdata）
         np.copyto(physics.data.mocap_pos[0], action_left[:3])
         np.copyto(physics.data.mocap_quat[0], action_left[3:7])
         # right
@@ -75,6 +79,10 @@ class BimanualViperXEETask(base.Task):
         # set gripper
         g_left_ctrl = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(action_left[7])
         g_right_ctrl = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(action_right[7])
+        # ctrl[0] = g_left_ctrl     # 左夹爪手指1（向内）
+        # ctrl[1] = -g_left_ctrl    # 左夹爪手指2（向外，方向相反）
+        # ctrl[2] = g_right_ctrl    # 右夹爪手指1
+        # ctrl[3] = -g_right_ctrl   # 右夹爪手指2（方向相反）
         np.copyto(physics.data.ctrl, np.array([g_left_ctrl, -g_left_ctrl, g_right_ctrl, -g_right_ctrl]))
 
     def initialize_robots(self, physics):

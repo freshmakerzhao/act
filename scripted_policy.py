@@ -21,8 +21,10 @@ class BasePolicy:
 
     @staticmethod
     def interpolate(curr_waypoint, next_waypoint, t):
+        # t是当前时间步，curr_waypoint为当前路点、next_waypoint是目标路点
+
         # 在两个路点之间线性插值，得到当前时刻的末端位姿与夹爪指令
-        t_frac = (t - curr_waypoint["t"]) / (next_waypoint["t"] - curr_waypoint["t"])
+        t_frac = (t - curr_waypoint["t"]) / (next_waypoint["t"] - curr_waypoint["t"]) # 
         curr_xyz = curr_waypoint['xyz']
         curr_quat = curr_waypoint['quat']
         curr_grip = curr_waypoint['gripper']
@@ -39,10 +41,10 @@ class BasePolicy:
         if self.step_count == 0:
             self.generate_trajectory(ts)
 
-        # 获取当前路点与下一个路点（左右臂独立）
+        # 获取当前路点与下一个路点（左右臂独立），curr_left_waypoint 是当前路点， next_left_waypoint 是下一个关键路点
         if self.left_trajectory[0]['t'] == self.step_count:
-            self.curr_left_waypoint = self.left_trajectory.pop(0)
-        next_left_waypoint = self.left_trajectory[0]
+            self.curr_left_waypoint = self.left_trajectory.pop(0) # 取出当前关键路点
+        next_left_waypoint = self.left_trajectory[0] # 记录下一个关键路点
 
         if self.right_trajectory[0]['t'] == self.step_count:
             self.curr_right_waypoint = self.right_trajectory.pop(0)
@@ -58,12 +60,12 @@ class BasePolicy:
             left_xyz = left_xyz + np.random.uniform(-scale, scale, left_xyz.shape)
             right_xyz = right_xyz + np.random.uniform(-scale, scale, right_xyz.shape)
 
-        # 拼接左右臂动作（xyz + quat + gripper）
+        # 拼接左右臂动作（xyz + quat + gripper），直接做成1维
         action_left = np.concatenate([left_xyz, left_quat, [left_gripper]])
         action_right = np.concatenate([right_xyz, right_quat, [right_gripper]])
 
         self.step_count += 1
-        return np.concatenate([action_left, action_right])
+        return np.concatenate([action_left, action_right]) # 返回左右臂当前时刻的xyz、quat、gripper,8*2
 
 
 class PickAndTransferPolicy(BasePolicy):
@@ -80,10 +82,10 @@ class PickAndTransferPolicy(BasePolicy):
 
         # 右臂抓取时的目标朝向（基于初始朝向旋转）
         gripper_pick_quat = Quaternion(init_mocap_pose_right[3:])
-        gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[0.0, 1.0, 0.0], degrees=-60)
+        gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[0.0, 1.0, 0.0], degrees=-60) # 这里是在初始朝向基础上绕y轴旋转-60度
 
         # 左臂在“交接点”处的目标朝向
-        meet_left_quat = Quaternion(axis=[1.0, 0.0, 0.0], degrees=90)
+        meet_left_quat = Quaternion(axis=[1.0, 0.0, 0.0], degrees=90) # 绕x轴旋转90度
 
         # 双臂交接点（世界坐标）
         meet_xyz = np.array([0, 0.5, 0.25])

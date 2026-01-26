@@ -3,6 +3,7 @@ import pathlib
 ### Task parameters
 DATA_DIR = '/home/zhaoshuai/workspace_act/act/data_sim_episodes'
 SIM_TASK_CONFIGS = {
+    # vx300s_bimanual搬方块任务
     'sim_transfer_cube_scripted':{
         'dataset_dir': DATA_DIR + '/sim_transfer_cube_scripted',
         'num_episodes': 50,
@@ -28,6 +29,14 @@ SIM_TASK_CONFIGS = {
         'dataset_dir': DATA_DIR + '/sim_insertion_human',
         'num_episodes': 50,
         'episode_len': 500,
+        'camera_names': ['top']
+    },
+
+    # 单臂搬方块任务
+    'sim_lifting_cube_scripted':{
+        'dataset_dir': DATA_DIR + '/sim_lifting_cube_scripted',
+        'num_episodes': 50,
+        'episode_len': 400,
         'camera_names': ['top']
     },
 }

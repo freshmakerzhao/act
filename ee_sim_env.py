@@ -50,6 +50,12 @@ def make_ee_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
         task = InsertionEETask(random=False)
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
                                   n_sub_steps=None, flat_observation=False)
+    elif "sim_lifting_cube" in task_name:
+        xml_path = os.path.join(XML_DIR, equipment_model, 'bimanual_viperx_ee_transfer_cube.xml')
+        physics = mujoco.Physics.from_xml_path(xml_path) # 加载物理引擎，其能够读取关节位置、推进一个step、渲染图像
+        task = LiftingCubeEETask(random=False) # 任务对象，初始化基本任务设置、奖励函数、观测数据提取
+        env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
+                                  n_sub_steps=None, flat_observation=False)
     else:
         raise NotImplementedError
     return env
@@ -211,6 +217,54 @@ class TransferCubeEETask(BimanualViperXEETask):
             reward = 4
         return reward
 
+class LiftingCubeEETask(BimanualViperXEETask):
+    def __init__(self, random=None):
+        super().__init__(random=random)
+        self.max_reward = 4
+
+    def initialize_episode(self, physics):
+        """Sets the state of the environment at the start of each episode."""
+        self.initialize_robots(physics)
+        # randomize box position
+        cube_pose = sample_box_pose()
+        box_start_idx = physics.model.name2id('red_box_joint', 'joint')
+        np.copyto(physics.data.qpos[box_start_idx : box_start_idx + 7], cube_pose)
+        # print(f"randomized cube position to {cube_position}")
+
+        super().initialize_episode(physics)
+
+    @staticmethod
+    def get_env_state(physics):
+        env_state = physics.data.qpos.copy()[16:]
+        return env_state
+
+    def get_reward(self, physics):
+        # return whether left gripper is holding the box
+        all_contact_pairs = []
+        for i_contact in range(physics.data.ncon):
+            id_geom_1 = physics.data.contact[i_contact].geom1
+            id_geom_2 = physics.data.contact[i_contact].geom2
+            name_geom_1 = physics.model.id2name(id_geom_1, 'geom')
+            name_geom_2 = physics.model.id2name(id_geom_2, 'geom')
+            contact_pair = (name_geom_1, name_geom_2)
+            all_contact_pairs.append(contact_pair)
+
+        # 判断夹爪和盒子的接触情况，如果夹爪接触盒子，则touch_left_gripper/touch_right_gripper为True
+        touch_left_gripper = ("red_box", "vx300s_left/10_left_gripper_finger") in all_contact_pairs
+        touch_right_gripper = ("red_box", "vx300s_right/10_right_gripper_finger") in all_contact_pairs
+        # 判断盒子和桌面的接触情况，如果盒子接触桌面，则touch_table为True
+        touch_table = ("red_box", "table") in all_contact_pairs
+
+        reward = 0
+        if touch_right_gripper:
+            reward = 1
+        if touch_right_gripper and not touch_table: # lifted 表示通过右夹爪抬起盒子
+            reward = 2
+        if touch_left_gripper: # attempted transfer 表示左夹爪接触盒子
+            reward = 3
+        if touch_left_gripper and not touch_table: # successful transfer 表示左夹爪抬起盒子，成功转移盒子
+            reward = 4
+        return reward
 
 class InsertionEETask(BimanualViperXEETask):
     def __init__(self, random=None):

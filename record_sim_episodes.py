@@ -16,11 +16,11 @@ e = IPython.embed
 
 def main(args):
     """
-    Generate demonstration data in simulation.
-    First rollout the policy (defined in ee space) in ee_sim_env. Obtain the joint trajectory.
-    Replace the gripper joint positions with the commanded joint position.
-    Replay this joint trajectory (as action sequence) in sim_env, and record all observations.
-    Save this episode of data, and continue to next episode of data collection.
+    生成仿真演示数据（轨迹录制）。
+    1) 在 ee_sim_env 中执行末端执行器(EE)空间策略，得到关节轨迹。
+    2) 用夹爪控制量替换夹爪关节位置。
+    3) 在 sim_env 中重放关节轨迹并记录观测。
+    4) 保存为一条 episode 数据并继续下一条。
     """
 
     task_name = args['task_name']
@@ -33,6 +33,7 @@ def main(args):
     if not os.path.isdir(dataset_dir):
         os.makedirs(dataset_dir, exist_ok=True)
 
+    # 从任务配置中读取 episode 长度与相机名称
     episode_len = SIM_TASK_CONFIGS[task_name]['episode_len']
     camera_names = SIM_TASK_CONFIGS[task_name]['camera_names']
     if task_name == 'sim_transfer_cube_scripted':
@@ -46,6 +47,7 @@ def main(args):
     for episode_idx in range(num_episodes):
         print(f'{episode_idx=}')
         print('Rollout out EE space scripted policy')
+        # 第一阶段：在 EE 空间执行脚本策略，得到关节轨迹
         # setup the environment
         env = make_ee_sim_env(task_name)
         ts = env.reset()
@@ -57,23 +59,27 @@ def main(args):
             plt_img = ax.imshow(ts.observation['images'][render_cam_name])
             plt.ion()
         for step in range(episode_len):
-            action = policy(ts)
+            # 这里action拿到的是当前ts下计算得到的xyz、quat、gripper,一维，size=8
+            action = policy(ts) # 这里调用__call__方法
+            # EE 环境内部会将 EE 动作转为关节控制并推进仿真
             ts = env.step(action)
             episode.append(ts)
             if onscreen_render:
                 plt_img.set_data(ts.observation['images'][render_cam_name])
                 plt.pause(0.002)
         plt.close()
-
-        episode_return = np.sum([ts.reward for ts in episode[1:]])
-        episode_max_reward = np.max([ts.reward for ts in episode[1:]])
+        # ts.reward 是当前时间步的奖励，计算 episode return 时跳过第一个时间步
+        episode_return = np.sum([ts.reward for ts in episode[1:]]) # 求reward和
+        episode_max_reward = np.max([ts.reward for ts in episode[1:]]) # 求reward最大值
         if episode_max_reward == env.task.max_reward:
+            # timestep中有一个达到了最大奖励，说明任务成功
             print(f"{episode_idx=} Successful, {episode_return=}")
         else:
             print(f"{episode_idx=} Failed")
 
+        # 从 EE 环境中抽取关节轨迹(qpos)
         joint_traj = [ts.observation['qpos'] for ts in episode]
-        # replace gripper pose with gripper control
+        # 夹爪控制量替换夹爪关节位置（避免 EE 环境内部的夹爪状态不一致）
         gripper_ctrl_traj = [ts.observation['gripper_ctrl'] for ts in episode]
         for joint, ctrl in zip(joint_traj, gripper_ctrl_traj):
             left_ctrl = PUPPET_GRIPPER_POSITION_NORMALIZE_FN(ctrl[0])
@@ -81,6 +87,7 @@ def main(args):
             joint[6] = left_ctrl
             joint[6+7] = right_ctrl
 
+        # 保存初始环境状态（如物体位姿），确保重放时一致
         subtask_info = episode[0].observation['env_state'].copy() # box pose at step 0
 
         # clear unused variables
@@ -88,9 +95,11 @@ def main(args):
         del episode
         del policy
 
+        # 第二阶段：在 sim_env 中重放关节轨迹并录制观测
         # setup the environment
         print('Replaying joint commands')
         env = make_sim_env(task_name)
+        # 将物体初始位姿同步到 sim_env
         BOX_POSE[0] = subtask_info # make sure the sim_env has the same object configurations as ee_sim_env
         ts = env.reset()
 
@@ -101,6 +110,7 @@ def main(args):
             plt_img = ax.imshow(ts.observation['images'][render_cam_name])
             plt.ion()
         for t in range(len(joint_traj)): # note: this will increase episode length by 1
+            # 直接把关节轨迹作为动作输入 sim_env
             action = joint_traj[t]
             ts = env.step(action)
             episode_replay.append(ts)
@@ -130,6 +140,7 @@ def main(args):
         action                  (14,)         'float64'
         """
 
+        # 组织数据：观测(qpos/qvel/图像)与动作(action)
         data_dict = {
             '/observations/qpos': [],
             '/observations/qvel': [],
@@ -138,14 +149,14 @@ def main(args):
         for cam_name in camera_names:
             data_dict[f'/observations/images/{cam_name}'] = []
 
-        # because the replaying, there will be eps_len + 1 actions and eps_len + 2 timesteps
-        # truncate here to be consistent
+        # 因为重放会多出 1 个动作与 1 个时间步，这里截断保持一致
         joint_traj = joint_traj[:-1]
         episode_replay = episode_replay[:-1]
 
         # len(joint_traj) i.e. actions: max_timesteps
         # len(episode_replay) i.e. time steps: max_timesteps + 1
         max_timesteps = len(joint_traj)
+        # 按时间步对齐 action 与 observation
         while joint_traj:
             action = joint_traj.pop(0)
             ts = episode_replay.pop(0)
@@ -155,7 +166,7 @@ def main(args):
             for cam_name in camera_names:
                 data_dict[f'/observations/images/{cam_name}'].append(ts.observation['images'][cam_name])
 
-        # HDF5
+        # 写入 HDF5 数据文件
         t0 = time.time()
         dataset_path = os.path.join(dataset_dir, f'episode_{episode_idx}')
         with h5py.File(dataset_path + '.hdf5', 'w', rdcc_nbytes=1024 ** 2 * 2) as root:

@@ -1,3 +1,4 @@
+from curses.ascii import ctrl
 import numpy as np
 import collections
 import os
@@ -35,12 +36,14 @@ def make_ee_sim_env(task_name):
                                         right_gripper_qvel (1)]     # normalized gripper velocity (pos: opening, neg: closing)
                         "images": {"main": (480x640x3)}        # h, w, c, dtype='uint8'
     """
+    # 根据不同任务加载不同的 XML 和 Task
     if 'sim_transfer_cube' in task_name:
         xml_path = os.path.join(XML_DIR, f'bimanual_viperx_ee_transfer_cube.xml')
-        physics = mujoco.Physics.from_xml_path(xml_path)
-        task = TransferCubeEETask(random=False)
+        physics = mujoco.Physics.from_xml_path(xml_path) # 加载物理引擎，其能够读取关节位置、推进一个step、渲染图像
+        task = TransferCubeEETask(random=False) # 任务对象，初始化基本任务设置、奖励函数、观测数据提取
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
                                   n_sub_steps=None, flat_observation=False)
+        # 这里DT表示控制时间步长，即每隔DT秒执行一次动作，在constants.py中定义为0.02秒
     elif 'sim_insertion' in task_name:
         xml_path = os.path.join(XML_DIR, f'bimanual_viperx_ee_insertion.xml')
         physics = mujoco.Physics.from_xml_path(xml_path)
@@ -55,13 +58,18 @@ class BimanualViperXEETask(base.Task):
     def __init__(self, random=None):
         super().__init__(random=random)
 
+    # 在物理仿真之前执行，physics 是 mujoco.Physics 类的实例，是 MuJoCo 物理引擎的 Python 接口，包含了整个仿真世界的所有状态和配置。
     def before_step(self, action, physics):
+        # 分别拿到左和右双臂的xyz、四元数和夹爪状态
         a_len = len(action) // 2
         action_left = action[:a_len]
         action_right = action[a_len:]
 
-        # set mocap position and quat
-        # left
+        # set mocap position and quat，设置mocap的位置和姿态，mujoco中能够通过mocap控制末端执行器的位置和姿态
+        # left，将action_left拷贝到physics.data.mocap_pos[0]
+        # physics包含model和data：
+        # model, 从xml中加载，主要包含静态配置
+        # data, 动态状态，每步更新（mjdata）
         np.copyto(physics.data.mocap_pos[0], action_left[:3])
         np.copyto(physics.data.mocap_quat[0], action_left[3:7])
         # right
@@ -71,6 +79,10 @@ class BimanualViperXEETask(base.Task):
         # set gripper
         g_left_ctrl = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(action_left[7])
         g_right_ctrl = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(action_right[7])
+        # ctrl[0] = g_left_ctrl     # 左夹爪手指1（向内）
+        # ctrl[1] = -g_left_ctrl    # 左夹爪手指2（向外，方向相反）
+        # ctrl[2] = g_right_ctrl    # 右夹爪手指1
+        # ctrl[3] = -g_right_ctrl   # 右夹爪手指2（方向相反）
         np.copyto(physics.data.ctrl, np.array([g_left_ctrl, -g_left_ctrl, g_right_ctrl, -g_right_ctrl]))
 
     def initialize_robots(self, physics):
@@ -182,18 +194,20 @@ class TransferCubeEETask(BimanualViperXEETask):
             contact_pair = (name_geom_1, name_geom_2)
             all_contact_pairs.append(contact_pair)
 
+        # 判断夹爪和盒子的接触情况，如果夹爪接触盒子，则touch_left_gripper/touch_right_gripper为True
         touch_left_gripper = ("red_box", "vx300s_left/10_left_gripper_finger") in all_contact_pairs
         touch_right_gripper = ("red_box", "vx300s_right/10_right_gripper_finger") in all_contact_pairs
+        # 判断盒子和桌面的接触情况，如果盒子接触桌面，则touch_table为True
         touch_table = ("red_box", "table") in all_contact_pairs
 
         reward = 0
         if touch_right_gripper:
             reward = 1
-        if touch_right_gripper and not touch_table: # lifted
+        if touch_right_gripper and not touch_table: # lifted 表示通过右夹爪抬起盒子
             reward = 2
-        if touch_left_gripper: # attempted transfer
+        if touch_left_gripper: # attempted transfer 表示左夹爪接触盒子
             reward = 3
-        if touch_left_gripper and not touch_table: # successful transfer
+        if touch_left_gripper and not touch_table: # successful transfer 表示左夹爪抬起盒子，成功转移盒子
             reward = 4
         return reward
 

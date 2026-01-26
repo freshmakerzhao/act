@@ -18,7 +18,7 @@ import IPython
 e = IPython.embed
 
 
-def make_ee_sim_env(task_name):
+def make_ee_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
     """
     Environment for simulated robot bi-manual manipulation, with end-effector control.
     Action space:      [left_arm_pose (7),             # position and quaternion for end effector
@@ -38,14 +38,14 @@ def make_ee_sim_env(task_name):
     """
     # 根据不同任务加载不同的 XML 和 Task
     if 'sim_transfer_cube' in task_name:
-        xml_path = os.path.join(XML_DIR, f'bimanual_viperx_ee_transfer_cube.xml')
+        xml_path = os.path.join(XML_DIR, equipment_model, 'bimanual_viperx_ee_transfer_cube.xml')
         physics = mujoco.Physics.from_xml_path(xml_path) # 加载物理引擎，其能够读取关节位置、推进一个step、渲染图像
         task = TransferCubeEETask(random=False) # 任务对象，初始化基本任务设置、奖励函数、观测数据提取
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
                                   n_sub_steps=None, flat_observation=False)
         # 这里DT表示控制时间步长，即每隔DT秒执行一次动作，在constants.py中定义为0.02秒
     elif 'sim_insertion' in task_name:
-        xml_path = os.path.join(XML_DIR, f'bimanual_viperx_ee_insertion.xml')
+        xml_path = os.path.join(XML_DIR, equipment_model, 'bimanual_viperx_ee_insertion.xml')
         physics = mujoco.Physics.from_xml_path(xml_path)
         task = InsertionEETask(random=False)
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,

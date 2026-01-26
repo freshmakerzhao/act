@@ -27,6 +27,7 @@ def main(args):
     dataset_dir = args['dataset_dir']
     num_episodes = args['num_episodes']
     onscreen_render = args['onscreen_render']
+    equipment_model = args['equipment_model'] if "equipment_model" in args else 'vx300s_bimanual'
     inject_noise = False
     render_cam_name = 'angle'
 
@@ -49,7 +50,7 @@ def main(args):
         print('Rollout out EE space scripted policy')
         # 第一阶段：在 EE 空间执行脚本策略，得到关节轨迹
         # setup the environment
-        env = make_ee_sim_env(task_name)
+        env = make_ee_sim_env(task_name, equipment_model=equipment_model)
         ts = env.reset()
         episode = [ts]
         policy = policy_cls(inject_noise)
@@ -98,7 +99,7 @@ def main(args):
         # 第二阶段：在 sim_env 中重放关节轨迹并录制观测
         # setup the environment
         print('Replaying joint commands')
-        env = make_sim_env(task_name)
+        env = make_sim_env(task_name, equipment_model=equipment_model)
         # 将物体初始位姿同步到 sim_env
         BOX_POSE[0] = subtask_info # make sure the sim_env has the same object configurations as ee_sim_env
         ts = env.reset()
@@ -195,6 +196,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_dir', action='store', type=str, help='dataset saving dir', required=True)
     parser.add_argument('--num_episodes', action='store', type=int, help='num_episodes', required=False)
     parser.add_argument('--onscreen_render', action='store_true')
+    parser.add_argument('--equipment_model', action='store', type=str, default='vx300s_bimanual',
+                        help='equipment model folder under assets (e.g., vx300s_bimanual)')
     
     main(vars(parser.parse_args()))
 

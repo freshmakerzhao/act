@@ -194,18 +194,20 @@ class TransferCubeEETask(BimanualViperXEETask):
             contact_pair = (name_geom_1, name_geom_2)
             all_contact_pairs.append(contact_pair)
 
+        # 判断夹爪和盒子的接触情况，如果夹爪接触盒子，则touch_left_gripper/touch_right_gripper为True
         touch_left_gripper = ("red_box", "vx300s_left/10_left_gripper_finger") in all_contact_pairs
         touch_right_gripper = ("red_box", "vx300s_right/10_right_gripper_finger") in all_contact_pairs
+        # 判断盒子和桌面的接触情况，如果盒子接触桌面，则touch_table为True
         touch_table = ("red_box", "table") in all_contact_pairs
 
         reward = 0
         if touch_right_gripper:
             reward = 1
-        if touch_right_gripper and not touch_table: # lifted
+        if touch_right_gripper and not touch_table: # lifted 表示通过右夹爪抬起盒子
             reward = 2
-        if touch_left_gripper: # attempted transfer
+        if touch_left_gripper: # attempted transfer 表示左夹爪接触盒子
             reward = 3
-        if touch_left_gripper and not touch_table: # successful transfer
+        if touch_left_gripper and not touch_table: # successful transfer 表示左夹爪抬起盒子，成功转移盒子
             reward = 4
         return reward
 

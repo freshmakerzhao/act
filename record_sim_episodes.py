@@ -68,10 +68,11 @@ def main(args):
                 plt_img.set_data(ts.observation['images'][render_cam_name])
                 plt.pause(0.002)
         plt.close()
-
-        episode_return = np.sum([ts.reward for ts in episode[1:]])
-        episode_max_reward = np.max([ts.reward for ts in episode[1:]])
+        # ts.reward 是当前时间步的奖励，计算 episode return 时跳过第一个时间步
+        episode_return = np.sum([ts.reward for ts in episode[1:]]) # 求reward和
+        episode_max_reward = np.max([ts.reward for ts in episode[1:]]) # 求reward最大值
         if episode_max_reward == env.task.max_reward:
+            # timestep中有一个达到了最大奖励，说明任务成功
             print(f"{episode_idx=} Successful, {episode_return=}")
         else:
             print(f"{episode_idx=} Failed")

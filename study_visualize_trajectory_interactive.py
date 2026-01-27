@@ -42,18 +42,20 @@ class ButtonControlledVisualizer:
         
         # 控制按钮（右下，左右独立）
         ax_btn_left_prev = plt.axes([0.55, 0.25, 0.18, 0.075])
-        ax_btn_left_next = plt.axes([0.75, 0.25, 0.18, 0.075])
-        ax_btn_right_prev = plt.axes([0.55, 0.15, 0.18, 0.075])
+        ax_btn_left_next = plt.axes([0.55, 0.15, 0.18, 0.075]) #  plt.axes([0.75, 0.25, 0.18, 0.075]) 
+        ax_btn_right_prev = plt.axes([0.75, 0.25, 0.18, 0.075])  # plt.axes([0.55, 0.15, 0.18, 0.075])
         ax_btn_right_next = plt.axes([0.75, 0.15, 0.18, 0.075])
         ax_btn_left_play = plt.axes([0.55, 0.35, 0.18, 0.075])
         ax_btn_right_play = plt.axes([0.75, 0.35, 0.18, 0.075])
+        ax_btn_reset = plt.axes([0.55, 0.45, 0.38, 0.075])
         
-        self.btn_left_prev = Button(ax_btn_left_prev, '左臂 ← 上一个')
-        self.btn_left_next = Button(ax_btn_left_next, '左臂 下一个 →')
-        self.btn_right_prev = Button(ax_btn_right_prev, '右臂 ← 上一个')
-        self.btn_right_next = Button(ax_btn_right_next, '右臂 下一个 →')
-        self.btn_left_play = Button(ax_btn_left_play, '左臂 ▶ 播放')
-        self.btn_right_play = Button(ax_btn_right_play, '右臂 ▶ 播放')
+        self.btn_left_prev = Button(ax_btn_left_prev, '左臂 上一动作')
+        self.btn_left_next = Button(ax_btn_left_next, '左臂 下一动作')
+        self.btn_right_prev = Button(ax_btn_right_prev, '右臂 上一动作')
+        self.btn_right_next = Button(ax_btn_right_next, '右臂 下一动作')
+        self.btn_left_play = Button(ax_btn_left_play, '左臂 播放完整轨迹')
+        self.btn_right_play = Button(ax_btn_right_play, '右臂 播放完整轨迹')
+        self.btn_reset = Button(ax_btn_reset, '重置到初始状态')
         
         self.btn_left_prev.on_clicked(self.prev_left_waypoint)
         self.btn_left_next.on_clicked(self.next_left_waypoint)
@@ -61,6 +63,7 @@ class ButtonControlledVisualizer:
         self.btn_right_next.on_clicked(self.next_right_waypoint)
         self.btn_left_play.on_clicked(self.play_left_trajectory)
         self.btn_right_play.on_clicked(self.play_right_trajectory)
+        self.btn_reset.on_clicked(self.reset_to_initial)
         
         plt.ion()
         plt.show()
@@ -74,14 +77,15 @@ class ButtonControlledVisualizer:
         init_mocap_pose_left = self.ts.observation['mocap_pose_left']
         
         box_info = np.array(self.ts.observation['env_state'])
-        box_xyz = box_info[:3]
-        
+        box_xyz = box_info[:3] # 范围内随机
+        print("箱子初始位置：", box_xyz)
         gripper_pick_quat = Quaternion(init_mocap_pose_right[3:])
         gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[0.0, 1.0, 0.0], degrees=-60)
         
         meet_left_quat = Quaternion(axis=[1.0, 0.0, 0.0], degrees=90)
         meet_xyz = np.array([0, 0.5, 0.25])
-        
+
+        print("交接点位置：", meet_xyz)        
         self.left_trajectory = [
             {"t": 0, "xyz": init_mocap_pose_left[: 3], "quat": init_mocap_pose_left[3:], "gripper": 0, "desc": "初始位置"},
             {"t": 100, "xyz": meet_xyz + np.array([-0.1, 0, -0.02]), "quat": meet_left_quat.elements, "gripper": 1, "desc": "接近交接点"},
@@ -102,7 +106,15 @@ class ButtonControlledVisualizer:
             {"t": 360, "xyz": meet_xyz + np.array([0.1, 0, 0]), "quat": gripper_pick_quat.elements, "gripper": 1, "desc": "后退"},
             {"t": 400, "xyz": meet_xyz + np.array([0.1, 0, 0]), "quat": gripper_pick_quat.elements, "gripper": 1, "desc": "保持"},
         ]
-        
+        # ===================== Debug 输出轨迹点 =====================
+        print("\n左臂轨迹点：")
+        for wp in self.left_trajectory:
+            print(f"  t={wp['t']}: xyz={wp['xyz']}, quat={wp['quat']}, gripper={'开' if wp['gripper'] > 0.5 else '闭'}，动作：{wp['desc']}")
+
+        print("\n右臂轨迹点：")
+        for wp in self.right_trajectory:
+            print(f"  t={wp['t']}: xyz={wp['xyz']}, quat={wp['quat']}, gripper={'开' if wp['gripper'] > 0.5 else '闭'}，动作：{wp['desc']}")
+        # ==========================================================
         self.box_xyz = box_xyz
         self.meet_xyz = meet_xyz
     
@@ -216,6 +228,14 @@ class ButtonControlledVisualizer:
             self.update_display()
             plt.pause(0.5)
         print("右臂播放完成！")
+
+    def reset_to_initial(self, event):
+        """重置到初始状态"""
+        print("\n重置到初始状态...")
+        self.current_left_idx = 0
+        self.current_right_idx = 0
+        self.update_display()
+        print("已重置。")
 
 if __name__ == '__main__':
     print("\n" + "=" * 80)

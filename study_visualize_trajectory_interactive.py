@@ -3,9 +3,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
-from pyquaternion import Quaternion
 from ee_sim_env import make_ee_sim_env
 from matplotlib.font_manager import FontProperties
+from trajectories import get_trajectory
+import argparse
 
 import matplotlib
 matplotlib.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei']
@@ -13,9 +14,11 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 
 class ButtonControlledVisualizer:
     
-    def __init__(self, task_name='sim_transfer_cube'):
+    def __init__(self, task_name='sim_transfer_cube', trajectory_name=None):
+        self.task_name = task_name
         self.env = make_ee_sim_env(task_name)
         self.ts = self.env.reset()
+        self.trajectory_name = trajectory_name
         self.generate_trajectory()
         
         # 当前路点索引（左右独立）
@@ -73,39 +76,14 @@ class ButtonControlledVisualizer:
     
     def generate_trajectory(self):
         """生成轨迹"""
-        init_mocap_pose_right = self.ts.observation['mocap_pose_right']
-        init_mocap_pose_left = self.ts.observation['mocap_pose_left']
-        
-        box_info = np.array(self.ts.observation['env_state'])
-        box_xyz = box_info[:3] # 范围内随机
+        self.left_trajectory, self.right_trajectory, meta = get_trajectory(
+            self.task_name,
+            self.ts
+        )
+        box_xyz = meta["box_xyz"]
+        meet_xyz = meta["meet_xyz"]
         print("箱子初始位置：", box_xyz)
-        gripper_pick_quat = Quaternion(init_mocap_pose_right[3:])
-        gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[0.0, 1.0, 0.0], degrees=-60)
-        
-        meet_left_quat = Quaternion(axis=[1.0, 0.0, 0.0], degrees=90)
-        meet_xyz = np.array([0, 0.5, 0.25])
-
-        print("交接点位置：", meet_xyz)        
-        self.left_trajectory = [
-            {"t": 0, "xyz": init_mocap_pose_left[: 3], "quat": init_mocap_pose_left[3:], "gripper": 0, "desc": "初始位置"},
-            {"t": 100, "xyz": meet_xyz + np.array([-0.1, 0, -0.02]), "quat": meet_left_quat.elements, "gripper": 1, "desc": "接近交接点"},
-            {"t": 260, "xyz": meet_xyz + np.array([0.02, 0, -0.02]), "quat": meet_left_quat.elements, "gripper": 1, "desc": "到达交接点"},
-            {"t": 310, "xyz": meet_xyz + np.array([0.02, 0, -0.02]), "quat": meet_left_quat.elements, "gripper": 0, "desc": "闭合夹爪"},
-            {"t": 360, "xyz": meet_xyz + np.array([-0.1, 0, -0.02]), "quat": np.array([1, 0, 0, 0]), "gripper": 0, "desc": "后退"},
-            {"t": 400, "xyz": meet_xyz + np.array([-0.1, 0, -0.02]), "quat": np.array([1, 0, 0, 0]), "gripper": 0, "desc": "保持"},
-        ]
-        
-        self.right_trajectory = [
-            {"t": 0, "xyz": init_mocap_pose_right[: 3], "quat": init_mocap_pose_right[3:], "gripper": 0, "desc": "初始位置"},
-            {"t": 90, "xyz": box_xyz + np.array([0, 0, 0.08]), "quat": gripper_pick_quat.elements, "gripper": 1, "desc": "箱子上方"},
-            {"t": 130, "xyz": box_xyz + np.array([0, 0, -0.015]), "quat": gripper_pick_quat.elements, "gripper": 1, "desc": "下降"},
-            {"t": 170, "xyz": box_xyz + np.array([0, 0, -0.015]), "quat": gripper_pick_quat.elements, "gripper":  0, "desc": "闭合夹爪"},
-            {"t": 200, "xyz": meet_xyz + np.array([0.05, 0, 0]), "quat": gripper_pick_quat.elements, "gripper": 0, "desc": "接近交接点"},
-            {"t": 220, "xyz": meet_xyz, "quat": gripper_pick_quat.elements, "gripper": 0, "desc":  "到达交接点"},
-            {"t": 310, "xyz": meet_xyz, "quat": gripper_pick_quat.elements, "gripper": 1, "desc":  "打开夹爪"},
-            {"t": 360, "xyz": meet_xyz + np.array([0.1, 0, 0]), "quat": gripper_pick_quat.elements, "gripper": 1, "desc": "后退"},
-            {"t": 400, "xyz": meet_xyz + np.array([0.1, 0, 0]), "quat": gripper_pick_quat.elements, "gripper": 1, "desc": "保持"},
-        ]
+        print("交接点位置：", meet_xyz)
         # ===================== Debug 输出轨迹点 =====================
         print("\n左臂轨迹点：")
         for wp in self.left_trajectory:
@@ -237,15 +215,13 @@ class ButtonControlledVisualizer:
         self.update_display()
         print("已重置。")
 
-if __name__ == '__main__':
-    print("\n" + "=" * 80)
-    print("交互式轨迹可视化工具")
-    print("=" * 80)
-    print("\n使用说明：")
-    print("  - 左臂/右臂按钮分别控制各自路点")
-    print("  - 左臂/右臂播放按钮分别播放各自轨迹")
-    print("  - 关闭窗口：退出程序")
-    print("\n" + "=" * 80 + "\n")
-    
-    visualizer = ButtonControlledVisualizer('sim_transfer_cube')
+
+def main(args):
+    task_name = args['task_name']
+    visualizer = ButtonControlledVisualizer(task_name)
     plt.show(block=True)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--task_name', action='store', type=str, help='task_name', default='sim_transfer_cube_scripted')
+    main(vars(parser.parse_args()))

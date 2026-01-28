@@ -9,15 +9,13 @@ from pyquaternion import Quaternion
 env = make_ee_sim_env('sim_transfer_cube')
 ts = env.reset()
 
-# Get initial state
+# 获取初始状态
 box_xyz = ts.observation['env_state'][:3]
 init_right = ts.observation['mocap_pose_right']
 init_left = ts.observation['mocap_pose_left']
 print(f"Box position: {box_xyz}")
-# Create adjustable target point
-target_offset = np.array([0, 0, 0.08])
 
-# Create interface with better layout
+# 画布
 fig = plt.figure(figsize=(16, 8))
 
 # Left: MuJoCo view (larger)
@@ -34,7 +32,7 @@ slider_height = 0.03
 slider_gap = 0.055
 slider_left = 0.62
 slider_width = 0.32
-slider_bottom_start = 0.22
+slider_bottom_start = 0.28
 
 ax_slider_x = plt.axes([slider_left, slider_bottom_start + 6*slider_gap, slider_width, slider_height])
 ax_slider_y = plt.axes([slider_left, slider_bottom_start + 5*slider_gap, slider_width, slider_height])
@@ -61,12 +59,15 @@ button_gap = 0.02
 ax_btn_save = plt.axes([button_left, 0.15, button_width, button_height])
 ax_btn_reset = plt.axes([button_left + button_width + button_gap, 0.15, button_width, button_height])
 ax_btn_export = plt.axes([button_left, 0.08, button_width + button_width + button_gap, button_height])
+ax_btn_gripper = plt.axes([button_left, 0.22, button_width + button_width + button_gap, button_height])
 
 btn_save = Button(ax_btn_save, 'Save Waypoint', color='lightblue', hovercolor='skyblue')
 btn_reset = Button(ax_btn_reset, 'Reset', color='lightcoral', hovercolor='salmon')
 btn_export = Button(ax_btn_export, 'Export Python Code', color='lightgreen', hovercolor='lime')
+btn_gripper = Button(ax_btn_gripper, 'Gripper: open', color='lightyellow', hovercolor='khaki')
 
 waypoints = []
+gripper_state = 1
 
 def update(val):
     offset = np.array([slider_x.val, slider_y.val, slider_z.val])
@@ -79,7 +80,7 @@ def update(val):
     # Update robot position
     action = np.concatenate([
         init_left, [1],
-        target, target_quat, [1]
+        target, target_quat, [gripper_state]
     ])
     new_ts = env.step(action)
     
@@ -109,8 +110,6 @@ OFFSET FROM BOX
   dY: {offset[1]:+7.3f} m
   dZ: {offset[2]:+7.3f} m
 
-DISTANCE: {distance_to_box:.3f} m
-
 SAVED WAYPOINTS: {len(waypoints)}
 """
     
@@ -118,6 +117,8 @@ SAVED WAYPOINTS: {len(waypoints)}
 QUAT (w, x, y, z)
     {target_quat[0]:+7.4f}  {target_quat[1]:+7.4f}
     {target_quat[2]:+7.4f}  {target_quat[3]:+7.4f}
+
+DISTANCE: {distance_to_box:.3f} m
 """
 
     info_text3 = f"""
@@ -125,6 +126,8 @@ BOX POSITION
   X: {box_xyz[0]:7.3f} m
   Y: {box_xyz[1]:7.3f} m
   Z: {box_xyz[2]:7.3f} m
+
+GRIPPER: {gripper_state}
 """
 
     ax_info.text(-0.05, 0.95, info_text1, 
@@ -154,16 +157,16 @@ def save_waypoint(event):
     target_quat = (quat_raw / quat_norm) if quat_norm > 1e-8 else init_right[3:].copy()
     
     wp = {
-        'xyz': target.copy(),
-        'offset': offset.copy(),
+        'xyz': target.copy(), # 绝对位置
+        'offset': offset.copy(), # 相对位置（相对于box）
         'quat': target_quat.copy(),
-        'gripper': 1,
+        'gripper': gripper_state,
         't': len(waypoints) * 50  # Auto-assign time
     }
     waypoints.append(wp)
     
     print(f"✓ Waypoint {len(waypoints)} saved:")
-    print(f"    t={wp['t']}, xyz={wp['xyz']}, offset={wp['offset']}, quat={wp['quat']}")
+    print(f"    t={wp['t']}, xyz={wp['xyz']}, box_offset={wp['offset']}, quat={wp['quat']}")
     
     update(None)
 
@@ -175,6 +178,15 @@ def reset(event):
     slider_qx.reset()
     slider_qy.reset()
     slider_qz.reset()
+    global gripper_state
+    gripper_state = 1
+    btn_gripper.label.set_text('Gripper: 开(1)')
+    update(None)
+
+def toggle_gripper(event):
+    global gripper_state
+    gripper_state = 0 if gripper_state > 0 else 1
+    btn_gripper.label.set_text('Gripper: 开(1)' if gripper_state > 0 else 'Gripper: 闭(0)')
     update(None)
 
 def export_code(event):
@@ -211,18 +223,11 @@ slider_qz.on_changed(update)
 btn_save.on_clicked(save_waypoint)
 btn_reset.on_clicked(reset)
 btn_export.on_clicked(export_code)
+btn_gripper.on_clicked(toggle_gripper)
 
 # Initial display
 update(None)
 
-print("="*70)
-print("INTERACTIVE WAYPOINT DESIGNER")
-print("="*70)
-print("\nInstructions:")
-print("  1. Adjust sliders to move the robot arm")
-print("  2. Click 'Save Waypoint' when position is good")
-print("  3. Repeat for all waypoints")
-print("  4. Click 'Export Python Code' to generate trajectory")
 print("\n" + "="*70 + "\n")
 
 plt.show()

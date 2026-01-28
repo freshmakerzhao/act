@@ -6,7 +6,7 @@ from dm_control import mujoco
 from dm_control.rl import control
 from dm_control.suite import base
 
-from constants import DT, XML_DIR, START_ARM_POSE
+from constants import DT, XML_DIR, START_ARM_POSE, START_SINGLE_ARM_POSE
 from constants import PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN
 from constants import MASTER_GRIPPER_POSITION_NORMALIZE_FN
 from constants import PUPPET_GRIPPER_POSITION_NORMALIZE_FN
@@ -48,7 +48,7 @@ def make_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
                                   n_sub_steps=None, flat_observation=False)
     elif 'sim_lifting_cube' in task_name:
-        xml_path = os.path.join(XML_DIR, equipment_model, 'bimanual_viperx_transfer_cube.xml')
+        xml_path = os.path.join(XML_DIR, equipment_model, 'single_viperx_transfer_cube.xml')
         physics = mujoco.Physics.from_xml_path(xml_path)
         task = LiftingCubeTask(random=False)
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
@@ -58,50 +58,76 @@ def make_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
     return env
 
 class BimanualViperXTask(base.Task):
-    def __init__(self, random=None):
+    def __init__(self, random=None, arm_nums=2):
         super().__init__(random=random)
+        self.arm_nums = arm_nums  # 2 双臂, 1 单臂
 
     def before_step(self, action, physics):
-        left_arm_action = action[:6]
-        right_arm_action = action[7:7+6]
-        normalized_left_gripper_action = action[6]
-        normalized_right_gripper_action = action[7+6]
+        if self.arm_nums == 2:
+            left_arm_action = action[:6]
+            right_arm_action = action[7:7+6]
+            normalized_left_gripper_action = action[6]
+            normalized_right_gripper_action = action[7+6]
 
-        left_gripper_action = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(normalized_left_gripper_action)
-        right_gripper_action = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(normalized_right_gripper_action)
+            left_gripper_action = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(normalized_left_gripper_action)
+            right_gripper_action = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(normalized_right_gripper_action)
 
-        full_left_gripper_action = [left_gripper_action, -left_gripper_action]
-        full_right_gripper_action = [right_gripper_action, -right_gripper_action]
+            full_left_gripper_action = [left_gripper_action, -left_gripper_action]
+            full_right_gripper_action = [right_gripper_action, -right_gripper_action]
 
-        env_action = np.concatenate([left_arm_action, full_left_gripper_action, right_arm_action, full_right_gripper_action])
-        super().before_step(env_action, physics)
+            env_action = np.concatenate([left_arm_action, full_left_gripper_action, right_arm_action, full_right_gripper_action])
+            super().before_step(env_action, physics)
+        elif self.arm_nums == 1:
+            right_arm_action = action[:6]
+            normalized_right_gripper_action = action[6]
+
+            right_gripper_action = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(normalized_right_gripper_action)
+
+            full_right_gripper_action = [right_gripper_action, -right_gripper_action]
+
+            env_action = np.concatenate([right_arm_action, full_right_gripper_action])
+            super().before_step(env_action, physics)
         return
 
     def initialize_episode(self, physics):
         """Sets the state of the environment at the start of each episode."""
         super().initialize_episode(physics)
 
-    @staticmethod
-    def get_qpos(physics):
+    def get_qpos(self, physics):
         qpos_raw = physics.data.qpos.copy()
-        left_qpos_raw = qpos_raw[:8]
-        right_qpos_raw = qpos_raw[8:16]
-        left_arm_qpos = left_qpos_raw[:6]
-        right_arm_qpos = right_qpos_raw[:6]
-        left_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(left_qpos_raw[6])]
-        right_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(right_qpos_raw[6])]
-        return np.concatenate([left_arm_qpos, left_gripper_qpos, right_arm_qpos, right_gripper_qpos])
+        if self.arm_nums == 2:
+            left_qpos_raw = qpos_raw[:8]
+            right_qpos_raw = qpos_raw[8:16]
+            left_arm_qpos = left_qpos_raw[:6]
+            right_arm_qpos = right_qpos_raw[:6]
+            left_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(left_qpos_raw[6])]
+            right_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(right_qpos_raw[6])]
+            return np.concatenate([left_arm_qpos, left_gripper_qpos, right_arm_qpos, right_gripper_qpos])
+        elif self.arm_nums == 1:
+            right_qpos_raw = qpos_raw[:8]
+            right_arm_qpos = right_qpos_raw[:6]
+            right_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(right_qpos_raw[6])]
+            return  np.concatenate([right_arm_qpos, right_gripper_qpos])
+        else:
+            raise NotImplementedError
 
-    @staticmethod
-    def get_qvel(physics):
+    def get_qvel(self, physics):
         qvel_raw = physics.data.qvel.copy()
-        left_qvel_raw = qvel_raw[:8]
-        right_qvel_raw = qvel_raw[8:16]
-        left_arm_qvel = left_qvel_raw[:6]
-        right_arm_qvel = right_qvel_raw[:6]
-        left_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(left_qvel_raw[6])]
-        right_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(right_qvel_raw[6])]
-        return np.concatenate([left_arm_qvel, left_gripper_qvel, right_arm_qvel, right_gripper_qvel])
+        if self.arm_nums == 2:
+            left_qvel_raw = qvel_raw[:8]
+            right_qvel_raw = qvel_raw[8:16]
+            left_arm_qvel = left_qvel_raw[:6]
+            right_arm_qvel = right_qvel_raw[:6]
+            left_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(left_qvel_raw[6])]
+            right_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(right_qvel_raw[6])]
+            return np.concatenate([left_arm_qvel, left_gripper_qvel, right_arm_qvel, right_gripper_qvel])
+        elif self.arm_nums == 1:
+            right_qvel_raw = qvel_raw[:8]
+            right_arm_qvel = right_qvel_raw[:6]
+            right_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(right_qvel_raw[6])]
+            return  np.concatenate([right_arm_qvel, right_gripper_qvel])
+        else:
+            raise NotImplementedError
 
     @staticmethod
     def get_env_state(physics):
@@ -234,10 +260,9 @@ class InsertionTask(BimanualViperXTask):
             reward = 4
         return reward
 
-
 class LiftingCubeTask(BimanualViperXTask):
     def __init__(self, random=None):
-        super().__init__(random=random)
+        super().__init__(random=random, arm_nums=1)
         self.max_reward = 4
 
     def initialize_episode(self, physics):
@@ -245,8 +270,8 @@ class LiftingCubeTask(BimanualViperXTask):
         # TODO Notice: this function does not randomize the env configuration. Instead, set BOX_POSE from outside
         # reset qpos, control and box position
         with physics.reset_context():
-            physics.named.data.qpos[:16] = START_ARM_POSE
-            np.copyto(physics.data.ctrl, START_ARM_POSE)
+            physics.named.data.qpos[:8] = START_SINGLE_ARM_POSE
+            np.copyto(physics.data.ctrl, START_SINGLE_ARM_POSE)
             assert BOX_POSE[0] is not None
             physics.named.data.qpos[-7:] = BOX_POSE[0]
             # print(f"{BOX_POSE=}")
@@ -254,7 +279,7 @@ class LiftingCubeTask(BimanualViperXTask):
 
     @staticmethod
     def get_env_state(physics):
-        env_state = physics.data.qpos.copy()[16:]
+        env_state = physics.data.qpos.copy()[8:]
         return env_state
 
     def get_reward(self, physics):
@@ -268,18 +293,19 @@ class LiftingCubeTask(BimanualViperXTask):
             contact_pair = (name_geom_1, name_geom_2)
             all_contact_pairs.append(contact_pair)
 
-        touch_left_gripper = ("red_box", "vx300s_left/10_left_gripper_finger") in all_contact_pairs
         touch_right_gripper = ("red_box", "vx300s_right/10_right_gripper_finger") in all_contact_pairs
-        touch_table = ("red_box", "table") in all_contact_pairs
+        # 判断盒子和桌面的接触情况，如果盒子接触桌面，则touch_table为True
+        touch_table = ("red_box", "table") in all_contact_pairs or ("table", "red_box") in all_contact_pairs 
+        touch_tray = ("red_box", "yellow_tray") in all_contact_pairs or ("yellow_tray", "red_box") in all_contact_pairs 
 
         reward = 0
         if touch_right_gripper:
             reward = 1
-        if touch_right_gripper and not touch_table: # lifted
+        if touch_right_gripper and not touch_table:
             reward = 2
-        if touch_left_gripper: # attempted transfer
+        if touch_right_gripper and touch_tray:
             reward = 3
-        if touch_left_gripper and not touch_table: # successful transfer
+        if not touch_right_gripper and touch_tray:
             reward = 4
         return reward
 

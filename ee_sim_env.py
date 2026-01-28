@@ -3,7 +3,7 @@ import numpy as np
 import collections
 import os
 
-from constants import DT, XML_DIR, START_ARM_POSE
+from constants import DT, XML_DIR, START_ARM_POSE, START_SINGLE_ARM_POSE
 from constants import PUPPET_GRIPPER_POSITION_CLOSE
 from constants import PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN
 from constants import PUPPET_GRIPPER_POSITION_NORMALIZE_FN
@@ -51,7 +51,7 @@ def make_ee_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
                                   n_sub_steps=None, flat_observation=False)
     elif "sim_lifting_cube" in task_name:
-        xml_path = os.path.join(XML_DIR, equipment_model, 'bimanual_viperx_ee_transfer_cube.xml')
+        xml_path = os.path.join(XML_DIR, equipment_model, 'single_viperx_ee_transfer_cube.xml')
         physics = mujoco.Physics.from_xml_path(xml_path) # 加载物理引擎，其能够读取关节位置、推进一个step、渲染图像
         task = LiftingCubeEETask(random=False) # 任务对象，初始化基本任务设置、奖励函数、观测数据提取
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
@@ -61,86 +61,133 @@ def make_ee_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
     return env
 
 class BimanualViperXEETask(base.Task):
-    def __init__(self, random=None):
+    def __init__(self, random=None, arm_nums=2):
         super().__init__(random=random)
+        self.arm_nums = arm_nums  # 2 双臂, 1 单臂
 
     # 在物理仿真之前执行，physics 是 mujoco.Physics 类的实例，是 MuJoCo 物理引擎的 Python 接口，包含了整个仿真世界的所有状态和配置。
     def before_step(self, action, physics):
         # 分别拿到左和右双臂的xyz、四元数和夹爪状态
-        a_len = len(action) // 2
-        action_left = action[:a_len]
-        action_right = action[a_len:]
+        if self.arm_nums == 2:
+            a_len = len(action) // 2
+            action_left = action[:a_len]
+            action_right = action[a_len:]
 
-        # set mocap position and quat，设置mocap的位置和姿态，mujoco中能够通过mocap控制末端执行器的位置和姿态
-        # left，将action_left拷贝到physics.data.mocap_pos[0]
-        # physics包含model和data：
-        # model, 从xml中加载，主要包含静态配置
-        # data, 动态状态，每步更新（mjdata）
-        np.copyto(physics.data.mocap_pos[0], action_left[:3])
-        np.copyto(physics.data.mocap_quat[0], action_left[3:7])
-        # right
-        np.copyto(physics.data.mocap_pos[1], action_right[:3])
-        np.copyto(physics.data.mocap_quat[1], action_right[3:7])
+            # set mocap position and quat，设置mocap的位置和姿态，mujoco中能够通过mocap控制末端执行器的位置和姿态
+            # left，将action_left拷贝到physics.data.mocap_pos[0]
+            # physics包含model和data：
+            # model, 从xml中加载，主要包含静态配置
+            # data, 动态状态，每步更新（mjdata）
 
-        # set gripper
-        g_left_ctrl = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(action_left[7])
-        g_right_ctrl = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(action_right[7])
-        # ctrl[0] = g_left_ctrl     # 左夹爪手指1（向内）
-        # ctrl[1] = -g_left_ctrl    # 左夹爪手指2（向外，方向相反）
-        # ctrl[2] = g_right_ctrl    # 右夹爪手指1
-        # ctrl[3] = -g_right_ctrl   # 右夹爪手指2（方向相反）
-        np.copyto(physics.data.ctrl, np.array([g_left_ctrl, -g_left_ctrl, g_right_ctrl, -g_right_ctrl]))
+            # left
+            np.copyto(physics.data.mocap_pos[0], action_left[:3])
+            np.copyto(physics.data.mocap_quat[0], action_left[3:7])
+            # right
+            np.copyto(physics.data.mocap_pos[1], action_right[:3])
+            np.copyto(physics.data.mocap_quat[1], action_right[3:7])
 
+            # set gripper
+            g_left_ctrl = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(action_left[7])
+            g_right_ctrl = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(action_right[7])
+            # ctrl[0] = g_left_ctrl     # 左夹爪手指1（向内）
+            # ctrl[1] = -g_left_ctrl    # 左夹爪手指2（向外，方向相反）
+            # ctrl[2] = g_right_ctrl    # 右夹爪手指1
+            # ctrl[3] = -g_right_ctrl   # 右夹爪手指2（方向相反）
+            np.copyto(physics.data.ctrl, np.array([g_left_ctrl, -g_left_ctrl, g_right_ctrl, -g_right_ctrl]))
+        elif self.arm_nums == 1:
+            action_left = None
+            action_right = action
+
+            # 单臂认为是右臂
+            np.copyto(physics.data.mocap_pos[0], action_right[:3])
+            np.copyto(physics.data.mocap_quat[0], action_right[3:7])
+
+            g_right_ctrl = PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN(action_right[7])
+            np.copyto(physics.data.ctrl, np.array([g_right_ctrl, -g_right_ctrl]))
+        else:
+            raise NotImplementedError
+      
     def initialize_robots(self, physics):
-        # reset joint position
-        physics.named.data.qpos[:16] = START_ARM_POSE
+        if self.arm_nums == 2:
+            # reset joint position
+            physics.named.data.qpos[:16] = START_ARM_POSE
 
-        # reset mocap to align with end effector
-        # to obtain these numbers:
-        # (1) make an ee_sim env and reset to the same start_pose
-        # (2) get env._physics.named.data.xpos['vx300s_left/gripper_link']
-        #     get env._physics.named.data.xquat['vx300s_left/gripper_link']
-        #     repeat the same for right side
-        np.copyto(physics.data.mocap_pos[0], [-0.31718881, 0.5, 0.29525084])
-        np.copyto(physics.data.mocap_quat[0], [1, 0, 0, 0])
-        # right
-        np.copyto(physics.data.mocap_pos[1], np.array([0.31718881, 0.49999888, 0.29525084]))
-        np.copyto(physics.data.mocap_quat[1],  [1, 0, 0, 0])
+            # reset mocap to align with end effector
+            # to obtain these numbers:
+            # (1) make an ee_sim env and reset to the same start_pose
+            # (2) get env._physics.named.data.xpos['vx300s_left/gripper_link']
+            #     get env._physics.named.data.xquat['vx300s_left/gripper_link']
+            #     repeat the same for right side
+            np.copyto(physics.data.mocap_pos[0], [-0.31718881, 0.5, 0.29525084])
+            np.copyto(physics.data.mocap_quat[0], [1, 0, 0, 0])
+            # right
+            np.copyto(physics.data.mocap_pos[1], np.array([0.31718881, 0.49999888, 0.29525084]))
+            np.copyto(physics.data.mocap_quat[1],  [1, 0, 0, 0])
 
-        # reset gripper control
-        close_gripper_control = np.array([
-            PUPPET_GRIPPER_POSITION_CLOSE,
-            -PUPPET_GRIPPER_POSITION_CLOSE,
-            PUPPET_GRIPPER_POSITION_CLOSE,
-            -PUPPET_GRIPPER_POSITION_CLOSE,
-        ])
-        np.copyto(physics.data.ctrl, close_gripper_control)
+            # reset gripper control
+            close_gripper_control = np.array([
+                PUPPET_GRIPPER_POSITION_CLOSE,
+                -PUPPET_GRIPPER_POSITION_CLOSE,
+                PUPPET_GRIPPER_POSITION_CLOSE,
+                -PUPPET_GRIPPER_POSITION_CLOSE,
+            ])
+            np.copyto(physics.data.ctrl, close_gripper_control)
+
+        elif self.arm_nums == 1:
+            physics.named.data.qpos[:8] = START_SINGLE_ARM_POSE
+
+            np.copyto(physics.data.mocap_pos[0], np.array([0.31718881, 0.49999888, 0.29525084]))
+            np.copyto(physics.data.mocap_quat[0],  [1, 0, 0, 0])
+
+
+            # reset gripper control
+            close_gripper_control = np.array([
+                PUPPET_GRIPPER_POSITION_CLOSE,
+                -PUPPET_GRIPPER_POSITION_CLOSE,
+            ])
+            np.copyto(physics.data.ctrl, close_gripper_control)
+        else:
+            raise NotImplementedError
 
     def initialize_episode(self, physics):
         """Sets the state of the environment at the start of each episode."""
         super().initialize_episode(physics)
 
-    @staticmethod
-    def get_qpos(physics):
+    def get_qpos(self, physics):
         qpos_raw = physics.data.qpos.copy()
-        left_qpos_raw = qpos_raw[:8]
-        right_qpos_raw = qpos_raw[8:16]
-        left_arm_qpos = left_qpos_raw[:6]
-        right_arm_qpos = right_qpos_raw[:6]
-        left_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(left_qpos_raw[6])]
-        right_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(right_qpos_raw[6])]
-        return np.concatenate([left_arm_qpos, left_gripper_qpos, right_arm_qpos, right_gripper_qpos])
+        if self.arm_nums == 2:
+            left_qpos_raw = qpos_raw[:8]
+            right_qpos_raw = qpos_raw[8:16]
+            left_arm_qpos = left_qpos_raw[:6]
+            right_arm_qpos = right_qpos_raw[:6]
+            left_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(left_qpos_raw[6])]
+            right_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(right_qpos_raw[6])]
+            return np.concatenate([left_arm_qpos, left_gripper_qpos, right_arm_qpos, right_gripper_qpos])
+        elif self.arm_nums == 1:
+            right_qpos_raw = qpos_raw[:8]
+            right_arm_qpos = right_qpos_raw[:6]
+            right_gripper_qpos = [PUPPET_GRIPPER_POSITION_NORMALIZE_FN(right_qpos_raw[6])]
+            return np.concatenate([right_arm_qpos, right_gripper_qpos])
+        else:
+            raise NotImplementedError
 
-    @staticmethod
-    def get_qvel(physics):
+    def get_qvel(self, physics):
         qvel_raw = physics.data.qvel.copy()
-        left_qvel_raw = qvel_raw[:8]
-        right_qvel_raw = qvel_raw[8:16]
-        left_arm_qvel = left_qvel_raw[:6]
-        right_arm_qvel = right_qvel_raw[:6]
-        left_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(left_qvel_raw[6])]
-        right_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(right_qvel_raw[6])]
-        return np.concatenate([left_arm_qvel, left_gripper_qvel, right_arm_qvel, right_gripper_qvel])
+        if self.arm_nums == 2:
+            left_qvel_raw = qvel_raw[:8]
+            right_qvel_raw = qvel_raw[8:16]
+            left_arm_qvel = left_qvel_raw[:6]
+            right_arm_qvel = right_qvel_raw[:6]
+            left_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(left_qvel_raw[6])]
+            right_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(right_qvel_raw[6])]
+            return np.concatenate([left_arm_qvel, left_gripper_qvel, right_arm_qvel, right_gripper_qvel])
+        elif self.arm_nums == 1:
+            right_qvel_raw = qvel_raw[:8]
+            right_arm_qvel = right_qvel_raw[:6]
+            right_gripper_qvel = [PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN(right_qvel_raw[6])]
+            return np.concatenate([right_arm_qvel, right_gripper_qvel])
+        else:
+            raise NotImplementedError
 
     @staticmethod
     def get_env_state(physics):
@@ -156,9 +203,14 @@ class BimanualViperXEETask(base.Task):
         obs['images']['top'] = physics.render(height=480, width=640, camera_id='top')
         obs['images']['angle'] = physics.render(height=480, width=640, camera_id='angle')
         obs['images']['vis'] = physics.render(height=480, width=640, camera_id='front_close')
-        # used in scripted policy to obtain starting pose
-        obs['mocap_pose_left'] = np.concatenate([physics.data.mocap_pos[0], physics.data.mocap_quat[0]]).copy()
-        obs['mocap_pose_right'] = np.concatenate([physics.data.mocap_pos[1], physics.data.mocap_quat[1]]).copy()
+        if self.arm_nums == 2:
+            # used in scripted policy to obtain starting pose
+            obs['mocap_pose_left'] = np.concatenate([physics.data.mocap_pos[0], physics.data.mocap_quat[0]]).copy()
+            obs['mocap_pose_right'] = np.concatenate([physics.data.mocap_pos[1], physics.data.mocap_quat[1]]).copy()
+        elif self.arm_nums == 1:
+            obs['mocap_pose_right'] = np.concatenate([physics.data.mocap_pos[0], physics.data.mocap_quat[0]]).copy()
+        else:
+            raise NotImplementedError
 
         # used when replaying joint trajectory
         obs['gripper_ctrl'] = physics.data.ctrl.copy()
@@ -219,7 +271,7 @@ class TransferCubeEETask(BimanualViperXEETask):
 
 class LiftingCubeEETask(BimanualViperXEETask):
     def __init__(self, random=None):
-        super().__init__(random=random)
+        super().__init__(random=random, arm_nums=1)
         self.max_reward = 4
 
     def initialize_episode(self, physics):
@@ -227,7 +279,7 @@ class LiftingCubeEETask(BimanualViperXEETask):
         self.initialize_robots(physics)
         # randomize box position
         cube_pose = sample_box_pose()
-        box_start_idx = physics.model.name2id('red_box_joint', 'joint')
+        box_start_idx = physics.model.name2id('red_box_joint', 'joint') # 根据名字找到box的索引
         np.copyto(physics.data.qpos[box_start_idx : box_start_idx + 7], cube_pose)
         # print(f"randomized cube position to {cube_position}")
 
@@ -235,34 +287,43 @@ class LiftingCubeEETask(BimanualViperXEETask):
 
     @staticmethod
     def get_env_state(physics):
-        env_state = physics.data.qpos.copy()[16:]
+        # 获取箱子状态，在该任务下，qpos前8维是机械臂状态，后面的是箱子状态
+        env_state = physics.data.qpos.copy()[8:]
         return env_state
 
     def get_reward(self, physics):
         # return whether left gripper is holding the box
         all_contact_pairs = []
+        # physics.data.ncon 获取当前ts的接触数量，遍历每一个接触对，拿到存在接触的geom名称
         for i_contact in range(physics.data.ncon):
+            # i_contact为一个接触对对应的id，通过id拿到两个相互接触的geom id
             id_geom_1 = physics.data.contact[i_contact].geom1
             id_geom_2 = physics.data.contact[i_contact].geom2
             name_geom_1 = physics.model.id2name(id_geom_1, 'geom')
             name_geom_2 = physics.model.id2name(id_geom_2, 'geom')
+            # === debug ====
+            # if name_geom_1 == "red_box" or name_geom_2 == "red_box":
+            #     print(f"contact pair: {name_geom_1}, {name_geom_2}")
+            # if name_geom_1 == "yellow_tray" or name_geom_2 == "yellow_tray":
+            #     print(f"contact pair: {name_geom_1}, {name_geom_2}")
+            # === debug ====
             contact_pair = (name_geom_1, name_geom_2)
             all_contact_pairs.append(contact_pair)
 
-        # 判断夹爪和盒子的接触情况，如果夹爪接触盒子，则touch_left_gripper/touch_right_gripper为True
-        touch_left_gripper = ("red_box", "vx300s_left/10_left_gripper_finger") in all_contact_pairs
+        # 判断夹爪和盒子的接触情况，如果夹爪接触盒子，则touch_right_gripper为True
         touch_right_gripper = ("red_box", "vx300s_right/10_right_gripper_finger") in all_contact_pairs
         # 判断盒子和桌面的接触情况，如果盒子接触桌面，则touch_table为True
-        touch_table = ("red_box", "table") in all_contact_pairs
+        touch_table = ("red_box", "table") in all_contact_pairs or ("table", "red_box") in all_contact_pairs 
+        touch_tray = ("red_box", "yellow_tray") in all_contact_pairs or ("yellow_tray", "red_box") in all_contact_pairs 
 
         reward = 0
         if touch_right_gripper:
             reward = 1
-        if touch_right_gripper and not touch_table: # lifted 表示通过右夹爪抬起盒子
+        if touch_right_gripper and not touch_table:
             reward = 2
-        if touch_left_gripper: # attempted transfer 表示左夹爪接触盒子
+        if touch_right_gripper and touch_tray:
             reward = 3
-        if touch_left_gripper and not touch_table: # successful transfer 表示左夹爪抬起盒子，成功转移盒子
+        if not touch_right_gripper and touch_tray:
             reward = 4
         return reward
 

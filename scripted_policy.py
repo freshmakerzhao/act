@@ -42,30 +42,38 @@ class BasePolicy:
             self.generate_trajectory(ts)
 
         # 获取当前路点与下一个路点（左右臂独立），curr_left_waypoint 是当前路点， next_left_waypoint 是下一个关键路点
-        if self.left_trajectory[0]['t'] == self.step_count:
-            self.curr_left_waypoint = self.left_trajectory.pop(0) # 取出当前关键路点
-        next_left_waypoint = self.left_trajectory[0] # 记录下一个关键路点
+        if self.left_trajectory is not None:
+            if self.left_trajectory[0]['t'] == self.step_count:
+                self.curr_left_waypoint = self.left_trajectory.pop(0) # 取出当前关键路点
+            next_left_waypoint = self.left_trajectory[0] # 记录下一个关键路点
+            # 在路点间插值，得到当前时刻的末端位姿和夹爪开合
+            left_xyz, left_quat, left_gripper = self.interpolate(self.curr_left_waypoint, next_left_waypoint, self.step_count)
 
-        if self.right_trajectory[0]['t'] == self.step_count:
-            self.curr_right_waypoint = self.right_trajectory.pop(0)
-        next_right_waypoint = self.right_trajectory[0]
-
-        # 在路点间插值，得到当前时刻的末端位姿和夹爪开合
-        left_xyz, left_quat, left_gripper = self.interpolate(self.curr_left_waypoint, next_left_waypoint, self.step_count)
-        right_xyz, right_quat, right_gripper = self.interpolate(self.curr_right_waypoint, next_right_waypoint, self.step_count)
+        if self.right_trajectory is not None:
+            if self.right_trajectory[0]['t'] == self.step_count:
+                self.curr_right_waypoint = self.right_trajectory.pop(0)
+            next_right_waypoint = self.right_trajectory[0]
+            right_xyz, right_quat, right_gripper = self.interpolate(self.curr_right_waypoint, next_right_waypoint, self.step_count)
 
         # 注入随机噪声，增加轨迹多样性
         if self.inject_noise:
             scale = 0.01
-            left_xyz = left_xyz + np.random.uniform(-scale, scale, left_xyz.shape)
-            right_xyz = right_xyz + np.random.uniform(-scale, scale, right_xyz.shape)
+            if self.left_trajectory is not None:
+                left_xyz = left_xyz + np.random.uniform(-scale, scale, left_xyz.shape)
+            if self.right_trajectory is not None:
+                right_xyz = right_xyz + np.random.uniform(-scale, scale, right_xyz.shape)
 
-        # 拼接左右臂动作（xyz + quat + gripper），直接做成1维
-        action_left = np.concatenate([left_xyz, left_quat, [left_gripper]])
-        action_right = np.concatenate([right_xyz, right_quat, [right_gripper]])
+        if self.left_trajectory is not None:
 
-        self.step_count += 1
-        return np.concatenate([action_left, action_right]) # 返回左右臂当前时刻的xyz、quat、gripper,8*2
+            # 拼接左右臂动作（xyz + quat + gripper），直接做成1维
+            action_left = np.concatenate([left_xyz, left_quat, [left_gripper]])
+            action_right = np.concatenate([right_xyz, right_quat, [right_gripper]])
+            self.step_count += 1
+            return np.concatenate([action_left, action_right]) # 返回左右臂当前时刻的xyz、quat、gripper,8*2
+        else:
+            action_right = np.concatenate([right_xyz, right_quat, [right_gripper]])
+            self.step_count += 1
+            return np.concatenate([action_right]) # 返回右臂当前时刻的xyz、quat、gripper,8
 
 
 class PickAndTransferPolicy(BasePolicy):
@@ -119,7 +127,6 @@ class LiftingAndMovingPolicy(BasePolicy):
     def generate_trajectory(self, ts_first):
         # 读取初始 mocap 位姿与箱体位姿，生成搬运轨迹
         init_mocap_pose_right = ts_first.observation['mocap_pose_right']
-        init_mocap_pose_left = ts_first.observation['mocap_pose_left']
 
         box_info = np.array(ts_first.observation['env_state']) # 获取箱体位姿,箱体是7维的，分别是xyz+quat。箱体在此处表示被抓取的物体
         box_xyz = box_info[:3]
@@ -130,34 +137,26 @@ class LiftingAndMovingPolicy(BasePolicy):
         gripper_pick_quat = Quaternion(init_mocap_pose_right[3:])
         gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[0.0, 1.0, 0.0], degrees=-60) # 这里是在初始朝向基础上绕y轴旋转-60度
 
-        # 左臂在“交接点”处的目标朝向
-        meet_left_quat = Quaternion(axis=[1.0, 0.0, 0.0], degrees=90) # 绕x轴旋转90度
+
+        tray_xyz = np.array([0.4, 0.85, 0.06])           # 与xml一致
+        tray_above_xyz = tray_xyz + np.array([0, 0, 0.06]) # 盘子正上方6cm
 
         # 双臂交接点（世界坐标）
         meet_xyz = np.array([0, 0.5, 0.25])
 
         # 下面定义了一些关键帧，也就是在t时刻机械比的位置和夹爪状态，
-        # 左臂路点序列：到交接点、闭合夹爪、退回
-        self.left_trajectory = [
-            {"t": 0, "xyz": init_mocap_pose_left[:3], "quat": init_mocap_pose_left[3:], "gripper": 0}, # sleep
-            {"t": 100, "xyz": meet_xyz + np.array([-0.1, 0, -0.02]), "quat": meet_left_quat.elements, "gripper": 1}, # approach meet position
-            {"t": 260, "xyz": meet_xyz + np.array([0.02, 0, -0.02]), "quat": meet_left_quat.elements, "gripper": 1}, # move to meet position
-            {"t": 310, "xyz": meet_xyz + np.array([0.02, 0, -0.02]), "quat": meet_left_quat.elements, "gripper": 0}, # close gripper
-            {"t": 360, "xyz": meet_xyz + np.array([-0.1, 0, -0.02]), "quat": np.array([1, 0, 0, 0]), "gripper": 0}, # move left
-            {"t": 400, "xyz": meet_xyz + np.array([-0.1, 0, -0.02]), "quat": np.array([1, 0, 0, 0]), "gripper": 0}, # stay
-        ]
-
         # 右臂路点序列：接近箱体、抓取、移交、松开
         self.right_trajectory = [
             {"t": 0, "xyz": init_mocap_pose_right[:3], "quat": init_mocap_pose_right[3:], "gripper": 0}, # sleep
             {"t": 90, "xyz": box_xyz + np.array([0, 0, 0.08]), "quat": gripper_pick_quat.elements, "gripper": 1}, # approach the cube
             {"t": 130, "xyz": box_xyz + np.array([0, 0, -0.015]), "quat": gripper_pick_quat.elements, "gripper": 1}, # go down
             {"t": 170, "xyz": box_xyz + np.array([0, 0, -0.015]), "quat": gripper_pick_quat.elements, "gripper": 0}, # close gripper
-            {"t": 200, "xyz": meet_xyz + np.array([0.05, 0, 0]), "quat": gripper_pick_quat.elements, "gripper": 0}, # approach meet position
-            {"t": 220, "xyz": meet_xyz, "quat": gripper_pick_quat.elements, "gripper": 0}, # move to meet position
-            {"t": 310, "xyz": meet_xyz, "quat": gripper_pick_quat.elements, "gripper": 1}, # open gripper
-            {"t": 360, "xyz": meet_xyz + np.array([0.1, 0, 0]), "quat": gripper_pick_quat.elements, "gripper": 1}, # move to right
-            {"t": 400, "xyz": meet_xyz + np.array([0.1, 0, 0]), "quat": gripper_pick_quat.elements, "gripper": 1}, # stay
+            {"t": 180, "xyz": box_xyz + np.array([0, 0, 0.10]), "quat": gripper_pick_quat.elements, "gripper": 0},
+            {"t": 230, "xyz": tray_xyz + np.array([0, 0, 0.06]), "quat": gripper_pick_quat.elements, "gripper": 0},
+            {"t": 260, "xyz": tray_xyz + np.array([0, 0, 0.03]), "quat": gripper_pick_quat.elements, "gripper": 0},
+            {"t": 300, "xyz": tray_xyz + np.array([0, 0, 0.03]), "quat": gripper_pick_quat.elements, "gripper": 1},
+            {"t": 340, "xyz": tray_xyz + np.array([0, 0, 0.06]), "quat": gripper_pick_quat.elements, "gripper": 1},
+            {"t": 400, "xyz": init_mocap_pose_right[:3], "quat": init_mocap_pose_right[3:], "gripper": 1},
         ]
 
 class InsertionPolicy(BasePolicy):

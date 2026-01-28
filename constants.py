@@ -1,7 +1,7 @@
 import pathlib
 
 ### Task parameters
-DATA_DIR = '/home/zhaoshuai/workspace_act/act/data_sim_episodes'
+DATA_DIR = '/home/zhaoshuai/workspace_act/act/data_debug'
 SIM_TASK_CONFIGS = {
     # vx300s_bimanual搬方块任务
     'sim_transfer_cube_scripted':{
@@ -45,6 +45,7 @@ SIM_TASK_CONFIGS = {
 DT = 0.02
 JOINT_NAMES = ["waist", "shoulder", "elbow", "forearm_roll", "wrist_angle", "wrist_rotate"]
 START_ARM_POSE = [0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239,  0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239]
+START_SINGLE_ARM_POSE = [0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239]
 
 XML_DIR = str(pathlib.Path(__file__).parent.resolve()) + '/assets/' # note: absolute path
 

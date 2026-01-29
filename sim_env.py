@@ -309,6 +309,7 @@ class LiftingCubeTask(BimanualViperXTask):
             reward = 4
         return reward
 
+# for test
 def get_action(master_bot_left, master_bot_right):
     action = np.zeros(14)
     # arm action

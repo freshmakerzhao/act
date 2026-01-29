@@ -1,0 +1,36 @@
+# 生成轨迹
+python3 record_sim_episodes.py \
+--task_name sim_transfer_cube_scripted \
+--dataset_dir ./data_sim_episodes/sim_transfer_cube_scripted \
+--num_episodes 50
+
+# 训练
+python3 imitate_episodes.py \
+    --task_name sim_lifting_cube_scripted \
+    --ckpt_dir ./ckpts/sim_lifting_cube \
+    --policy_class ACT \
+    --kl_weight 10 \
+    --chunk_size 100 \
+    --hidden_dim 512 \
+    --batch_size 8 \
+    --dim_feedforward 3200 \
+    --num_epochs 2000 \
+    --lr 1e-5 \
+    --equipment_model vx300s_single \
+    --seed 0
+
+# eval
+python3 imitate_episodes.py \
+    --task_name sim_transfer_cube_scripted \
+    --ckpt_dir ./ckpts/sim_transfer_cube \
+    --policy_class ACT \
+    --kl_weight 10 \
+    --chunk_size 100 \
+    --hidden_dim 512 \
+    --batch_size 8 \
+    --dim_feedforward 3200 \
+    --num_epochs 2000 \
+    --lr 1e-5 \
+    --seed 0 \
+    --equipment_model vx300s_single \
+    --eval

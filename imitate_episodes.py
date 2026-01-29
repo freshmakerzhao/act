@@ -32,6 +32,7 @@ def main(args):
     batch_size_train = args['batch_size']
     batch_size_val = args['batch_size']
     num_epochs = args['num_epochs']
+    equipment_model = args['equipment_model'] if "equipment_model" in args else 'vx300s_bimanual'
 
     # get task parameters
     is_sim = task_name[:4] == 'sim_'
@@ -46,8 +47,12 @@ def main(args):
     episode_len = task_config['episode_len']
     camera_names = task_config['camera_names']
 
-    # fixed parameters
-    state_dim = 14
+    # 双臂14，单臂7
+    if 'bimanual' in equipment_model:
+        state_dim = 14 
+    else:
+        state_dim = 7
+
     lr_backbone = 1e-5
     backbone = 'resnet18'
     if policy_class == 'ACT':
@@ -92,7 +97,7 @@ def main(args):
         ckpt_names = [f'policy_best.ckpt']
         results = []
         for ckpt_name in ckpt_names:
-            success_rate, avg_return = eval_bc(config, ckpt_name, save_episode=True)
+            success_rate, avg_return = eval_bc(config, ckpt_name, save_episode=True, equipment_model=equipment_model)
             results.append([ckpt_name, success_rate, avg_return])
 
         for ckpt_name, success_rate, avg_return in results:
@@ -148,7 +153,7 @@ def get_image(ts, camera_names):
     return curr_image
 
 
-def eval_bc(config, ckpt_name, save_episode=True):
+def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanual'):
     set_seed(1000)
     ckpt_dir = config['ckpt_dir']
     state_dim = config['state_dim']
@@ -185,7 +190,7 @@ def eval_bc(config, ckpt_name, save_episode=True):
         env_max_reward = 0
     else:
         from sim_env import make_sim_env
-        env = make_sim_env(task_name)
+        env = make_sim_env(task_name, equipment_model)
         env_max_reward = env.task.max_reward
 
     query_frequency = policy_config['num_queries']
@@ -205,7 +210,10 @@ def eval_bc(config, ckpt_name, save_episode=True):
             BOX_POSE[0] = sample_box_pose() # used in sim reset
         elif 'sim_insertion' in task_name:
             BOX_POSE[0] = np.concatenate(sample_insertion_pose()) # used in sim reset
-
+        elif 'sim_lifting_cube' in task_name:
+            BOX_POSE[0] = sample_box_pose()  # used in sim reset
+        else:
+            raise NotImplementedError
         ts = env.reset()
 
         ### onscreen render
@@ -316,6 +324,10 @@ def eval_bc(config, ckpt_name, save_episode=True):
 def forward_pass(data, policy):
     image_data, qpos_data, action_data, is_pad = data
     image_data, qpos_data, action_data, is_pad = image_data.cuda(), qpos_data.cuda(), action_data.cuda(), is_pad.cuda()
+    # ==== debug ====
+    # 检查数据维度
+    # print(image_data.shape, qpos_data.shape, action_data.shape, is_pad.shape)
+    # ==== debug ====
     return policy(qpos_data, image_data, action_data, is_pad) # TODO remove None
 
 
@@ -431,5 +443,8 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_dim', action='store', type=int, help='hidden_dim', required=False)
     parser.add_argument('--dim_feedforward', action='store', type=int, help='dim_feedforward', required=False)
     parser.add_argument('--temporal_agg', action='store_true')
-    
+
+    # 设备型号
+    parser.add_argument('--equipment_model', action='store', type=str, default='vx300s_bimanual',
+                        help='equipment model folder under assets (e.g., vx300s_bimanual)')
     main(vars(parser.parse_args()))

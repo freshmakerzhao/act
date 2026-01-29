@@ -64,6 +64,9 @@ def get_args_parser():
     parser.add_argument('--chunk_size', action='store', type=int, help='chunk_size', required=False)
     parser.add_argument('--temporal_agg', action='store_true')
 
+    # 设备型号
+    parser.add_argument('--equipment_model', action='store', type=str, default='vx300s_bimanual',
+                        help='equipment model folder under assets (e.g., vx300s_bimanual)')
     return parser
 
 

@@ -8,7 +8,7 @@ import h5py
 from constants import PUPPET_GRIPPER_POSITION_NORMALIZE_FN, SIM_TASK_CONFIGS
 from ee_sim_env import make_ee_sim_env
 from sim_env import make_sim_env, BOX_POSE
-from scripted_policy import PickAndTransferPolicy, InsertionPolicy
+from scripted_policy import PickAndTransferPolicy, InsertionPolicy, LiftingAndMovingPolicy
 
 import IPython
 e = IPython.embed
@@ -30,6 +30,7 @@ def main(args):
     equipment_model = args['equipment_model'] if "equipment_model" in args else 'vx300s_bimanual'
     inject_noise = False
     render_cam_name = 'angle'
+    arm_nums = 2 # 默认双臂任务，特殊型号或任务时修改
 
     if not os.path.isdir(dataset_dir):
         os.makedirs(dataset_dir, exist_ok=True)
@@ -41,6 +42,9 @@ def main(args):
         policy_cls = PickAndTransferPolicy
     elif task_name == 'sim_insertion_scripted':
         policy_cls = InsertionPolicy
+    elif task_name == 'sim_lifting_cube_scripted':
+        policy_cls = LiftingAndMovingPolicy
+        arm_nums = 1
     else:
         raise NotImplementedError
 
@@ -82,11 +86,18 @@ def main(args):
         joint_traj = [ts.observation['qpos'] for ts in episode]
         # 夹爪控制量替换夹爪关节位置（避免 EE 环境内部的夹爪状态不一致）
         gripper_ctrl_traj = [ts.observation['gripper_ctrl'] for ts in episode]
-        for joint, ctrl in zip(joint_traj, gripper_ctrl_traj):
-            left_ctrl = PUPPET_GRIPPER_POSITION_NORMALIZE_FN(ctrl[0])
-            right_ctrl = PUPPET_GRIPPER_POSITION_NORMALIZE_FN(ctrl[2])
-            joint[6] = left_ctrl
-            joint[6+7] = right_ctrl
+        if arm_nums == 2:
+            for joint, ctrl in zip(joint_traj, gripper_ctrl_traj):
+                left_ctrl = PUPPET_GRIPPER_POSITION_NORMALIZE_FN(ctrl[0])
+                right_ctrl = PUPPET_GRIPPER_POSITION_NORMALIZE_FN(ctrl[2])
+                joint[6] = left_ctrl
+                joint[6+7] = right_ctrl
+        elif arm_nums == 1:
+            for joint, ctrl in zip(joint_traj, gripper_ctrl_traj):
+                right_ctrl = PUPPET_GRIPPER_POSITION_NORMALIZE_FN(ctrl[0])
+                joint[6] = right_ctrl
+        else:
+            raise NotImplementedError
 
         # 保存初始环境状态（如物体位姿），确保重放时一致
         subtask_info = episode[0].observation['env_state'].copy() # box pose at step 0
@@ -179,9 +190,9 @@ def main(args):
                                          chunks=(1, 480, 640, 3), )
             # compression='gzip',compression_opts=2,)
             # compression=32001, compression_opts=(0, 0, 0, 0, 9, 1, 1), shuffle=False)
-            qpos = obs.create_dataset('qpos', (max_timesteps, 14))
-            qvel = obs.create_dataset('qvel', (max_timesteps, 14))
-            action = root.create_dataset('action', (max_timesteps, 14))
+            qpos = obs.create_dataset('qpos', (max_timesteps, 14 if arm_nums==2 else 7))
+            qvel = obs.create_dataset('qvel', (max_timesteps, 14 if arm_nums==2 else 7))
+            action = root.create_dataset('action', (max_timesteps, 14 if arm_nums==2 else 7))
 
             for name, array in data_dict.items():
                 root[name][...] = array

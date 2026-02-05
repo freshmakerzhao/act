@@ -209,7 +209,7 @@ class InsertionPolicy(BasePolicy):
         ]
 
 
-def test_policy(task_name):
+def test_policy(task_name, equipment_model="vx300s_bimanual"):
     # 在 EE 环境中回放脚本策略
     onscreen_render = True
     inject_noise = False
@@ -217,9 +217,14 @@ def test_policy(task_name):
     # 根据任务名创建对应 EE 环境
     episode_len = SIM_TASK_CONFIGS[task_name]['episode_len']
     if 'sim_transfer_cube' in task_name:
-        env = make_ee_sim_env('sim_transfer_cube')
+        env = make_ee_sim_env('sim_transfer_cube', equipment_model=equipment_model)
+        policy_cls = PickAndTransferPolicy
     elif 'sim_insertion' in task_name:
-        env = make_ee_sim_env('sim_insertion')
+        env = make_ee_sim_env('sim_insertion', equipment_model=equipment_model)
+        policy_cls = InsertionPolicy
+    elif 'sim_lifting' in task_name:
+        env = make_ee_sim_env('sim_lifting_cube', equipment_model=equipment_model)
+        policy_cls = LiftingAndMovingPolicy
     else:
         raise NotImplementedError
 
@@ -231,7 +236,7 @@ def test_policy(task_name):
             plt_img = ax.imshow(ts.observation['images']['angle'])
             plt.ion()
 
-        policy = PickAndTransferPolicy(inject_noise)
+        policy = policy_cls(inject_noise)
         for step in range(episode_len):
             # 逐步输出 EE 动作
             action = policy(ts)
@@ -250,6 +255,11 @@ def test_policy(task_name):
 
 
 if __name__ == '__main__':
-    test_task_name = 'sim_transfer_cube_scripted'
-    test_policy(test_task_name)
+
+    test_task_name = 'sim_lifting_cube_scripted'
+    equipment_model="fairino5_single"
+
+    # test_task_name = 'sim_lifting_cube_scripted'
+    # equipment_model="vx300s_single"
+    test_policy(test_task_name, equipment_model)
 

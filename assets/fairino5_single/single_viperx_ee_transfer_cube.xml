@@ -3,13 +3,14 @@
     <include file="fairino_fr5_dependencies.xml"/>
 
     <equality>
-        <weld body1="mocap_right" body2="vx300s_right/gripper_link" solref="0.01 1" solimp=".25 .25 0.001" />
+        <weld body1="mocap_right" body2="fairino_fr5/wrist3_link" solref="0.01 1" solimp=".25 .25 0.001" />
     </equality>
     
     <worldbody>
         <include file="fairino_fr5.xml" />
         
-        <body mocap="true" name="mocap_right" pos="1.32 0.83 0.05">
+        <!-- <body mocap="true" name="mocap_right" pos="0 0.396 0.425"> -->
+        <body mocap="true" name="mocap_right" pos="-0.32 0.2 0.05">
             <site pos="0 0 0" size="0.003 0.003 0.03" type="box" name="mocap_right_site1" rgba="1 0 0 1"/>
             <site pos="0 0 0" size="0.003 0.03 0.003" type="box" name="mocap_right_site2" rgba="1 0 0 1"/>
             <site pos="0 0 0" size="0.03 0.003 0.003" type="box" name="mocap_right_site3" rgba="1 0 0 1"/>
@@ -31,4 +32,9 @@
         <position ctrllimited="true" ctrlrange="0.021 0.057" joint="vx300s_right/left_finger" kp="200"  user="1"/>
         <position ctrllimited="true" ctrlrange="-0.057 -0.021" joint="vx300s_right/right_finger" kp="200"  user="1"/>
     </actuator>
+    
+    <!-- 初始位置 -->
+    <keyframe>
+        <key name="init_pose" qpos="0 -1.54 1.45 -1.4 -1.56 -1.56 0.057 -0.057 0.2 0.5 0.05 1 0 0 0" />
+    </keyframe>
 </mujoco>

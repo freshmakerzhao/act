@@ -3,7 +3,7 @@ import numpy as np
 import collections
 import os
 
-from constants import DT, XML_DIR, START_ARM_POSE, START_SINGLE_ARM_POSE
+from constants import DT, START_FAIRINO_POSE, XML_DIR, START_ARM_POSE, START_SINGLE_ARM_POSE
 from constants import PUPPET_GRIPPER_POSITION_CLOSE
 from constants import PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN
 from constants import PUPPET_GRIPPER_POSITION_NORMALIZE_FN
@@ -134,10 +134,10 @@ class BimanualViperXEETask(base.Task):
             np.copyto(physics.data.ctrl, close_gripper_control)
 
         elif self.arm_nums == 1:
-            physics.named.data.qpos[:8] = START_SINGLE_ARM_POSE
-
-            np.copyto(physics.data.mocap_pos[0], np.array([0.31718881, 0.49999888, 0.29525084]))
-            np.copyto(physics.data.mocap_quat[0],  [1, 0, 0, 0])
+            physics.named.data.qpos[:8] = START_FAIRINO_POSE
+            physics.forward()
+            np.copyto(physics.data.mocap_pos[0], np.array([0.00394128,0.39627973,0.4555668]))
+            np.copyto(physics.data.mocap_quat[0],  [0.7071, 0.7071, 0, 0])
 
 
             # reset gripper control

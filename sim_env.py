@@ -6,7 +6,7 @@ from dm_control import mujoco
 from dm_control.rl import control
 from dm_control.suite import base
 
-from constants import DT, XML_DIR, START_ARM_POSE, START_SINGLE_ARM_POSE
+from constants import DT, START_FAIRINO_POSE, XML_DIR, START_ARM_POSE, START_SINGLE_ARM_POSE
 from constants import PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN
 from constants import MASTER_GRIPPER_POSITION_NORMALIZE_FN
 from constants import PUPPET_GRIPPER_POSITION_NORMALIZE_FN
@@ -270,8 +270,8 @@ class LiftingCubeTask(BimanualViperXTask):
         # TODO Notice: this function does not randomize the env configuration. Instead, set BOX_POSE from outside
         # reset qpos, control and box position
         with physics.reset_context():
-            physics.named.data.qpos[:8] = START_SINGLE_ARM_POSE
-            np.copyto(physics.data.ctrl, START_SINGLE_ARM_POSE)
+            physics.named.data.qpos[:8] = START_FAIRINO_POSE
+            np.copyto(physics.data.ctrl, START_FAIRINO_POSE)
             assert BOX_POSE[0] is not None
             physics.named.data.qpos[-7:] = BOX_POSE[0]
             # print(f"{BOX_POSE=}")

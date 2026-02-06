@@ -275,6 +275,7 @@ class LiftingCubeTask(BimanualViperXTask):
             assert BOX_POSE[0] is not None
             physics.named.data.qpos[-7:] = BOX_POSE[0]
             # print(f"{BOX_POSE=}")
+        physics.forward()
         super().initialize_episode(physics)
 
     @staticmethod

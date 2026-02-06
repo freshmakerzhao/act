@@ -1,7 +1,7 @@
 import pathlib
 
 ### Task parameters
-DATA_DIR = '/home/zhaoshuai/workspace_act/act/data_sim_episodes'
+DATA_DIR = '/home/zhaoshuai/workspace_act/act/data_sim_episodes/fairino5'
 SIM_TASK_CONFIGS = {
     # vx300s_bimanual搬方块任务
     'sim_transfer_cube_scripted':{

@@ -135,10 +135,11 @@ class LiftingAndMovingPolicy(BasePolicy):
 
         # 右臂抓取时的目标朝向（基于初始朝向旋转）
         gripper_pick_quat = Quaternion(init_mocap_pose_right[3:])
-        gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[0.0, 1.0, 0.0], degrees=-60) # 这里是在初始朝向基础上绕y轴旋转-60度
+        # gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[0.0, 1.0, 0.0], degrees=-60) # 这里是在初始朝向基础上绕y轴旋转-60度,vx300s使用
+        # gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[0.0, 1.0, 0.0], degrees=-60) # 这里是在初始朝向基础上绕y轴旋转-60度,法奥不需要
 
 
-        tray_xyz = np.array([0.4, 0.85, 0.06])           # 与xml一致
+        tray_xyz = np.array([0.4, 0.85, 0.06])             # 盘子位置
         tray_above_xyz = tray_xyz + np.array([0, 0, 0.06]) # 盘子正上方6cm
 
         # 双臂交接点（世界坐标）
@@ -147,15 +148,15 @@ class LiftingAndMovingPolicy(BasePolicy):
         # 下面定义了一些关键帧，也就是在t时刻机械比的位置和夹爪状态，
         # 右臂路点序列：接近箱体、抓取、移交、松开
         self.right_trajectory = [
-            {"t": 0, "xyz": init_mocap_pose_right[:3], "quat": init_mocap_pose_right[3:], "gripper": 0}, # sleep
-            {"t": 90, "xyz": box_xyz + np.array([0, 0, 0.08]), "quat": gripper_pick_quat.elements, "gripper": 1}, # approach the cube
-            {"t": 130, "xyz": box_xyz + np.array([0, 0, -0.015]), "quat": gripper_pick_quat.elements, "gripper": 1}, # go down
-            {"t": 170, "xyz": box_xyz + np.array([0, 0, -0.015]), "quat": gripper_pick_quat.elements, "gripper": 0}, # close gripper
-            {"t": 180, "xyz": box_xyz + np.array([0, 0, 0.10]), "quat": gripper_pick_quat.elements, "gripper": 0},
-            {"t": 230, "xyz": tray_xyz + np.array([0, 0, 0.06]), "quat": gripper_pick_quat.elements, "gripper": 0},
-            {"t": 260, "xyz": tray_xyz + np.array([0, 0, 0.03]), "quat": gripper_pick_quat.elements, "gripper": 0},
-            {"t": 300, "xyz": tray_xyz + np.array([0, 0, 0.03]), "quat": gripper_pick_quat.elements, "gripper": 1},
-            {"t": 340, "xyz": tray_xyz + np.array([0, 0, 0.06]), "quat": gripper_pick_quat.elements, "gripper": 1},
+            {"t": 0, "xyz": init_mocap_pose_right[:3], "quat": init_mocap_pose_right[3:], "gripper": 1}, # sleep
+            {"t": 50, "xyz": box_xyz + np.array([0, 0, 0.08]), "quat": gripper_pick_quat.elements, "gripper": 1}, # approach the cube
+            {"t": 70, "xyz": box_xyz + np.array([0, 0, -0.015]), "quat": gripper_pick_quat.elements, "gripper": 1}, # go down
+            {"t": 100, "xyz": box_xyz + np.array([0, 0, -0.015]), "quat": gripper_pick_quat.elements, "gripper": 0}, # close gripper
+            {"t": 140, "xyz": box_xyz + np.array([0, 0, 0.10]), "quat": gripper_pick_quat.elements, "gripper": 0}, # lift
+            {"t": 300, "xyz": tray_xyz + np.array([0, 0, 0.06]), "quat": gripper_pick_quat.elements, "gripper": 0},
+            {"t": 330, "xyz": tray_xyz + np.array([0, 0, 0.03]), "quat": gripper_pick_quat.elements, "gripper": 0},
+            {"t": 350, "xyz": tray_xyz + np.array([0, 0, 0.03]), "quat": gripper_pick_quat.elements, "gripper": 1},
+            {"t": 365, "xyz": tray_xyz + np.array([0, 0, 0.06]), "quat": gripper_pick_quat.elements, "gripper": 1},
             {"t": 400, "xyz": init_mocap_pose_right[:3], "quat": init_mocap_pose_right[3:], "gripper": 1},
         ]
 

@@ -9,26 +9,28 @@ XML_PATH = '/home/zhaoshuai/workspace_act/act/assets/fairino5_single/single_vipe
 
 # 2. L型 8位关节角度 (j1-j6 + 2个手指)
 START_POSE = [0, -1.54, 1.45, -1.4, -1.56, -1.56, 0.057,   -0.057]
+START_POSE2 = [0, 0, 0, 0, 0, 0, 0.057, -0.057]
 
 EE_NAME = 'fairino_fr5/wrist3_link' 
 # ===========================================
 
 def debug_initialize(model, data):
     
-    data.qpos[:8] = START_POSE
+    data.qpos[:8] = START_POSE2
     
     mujoco.mj_forward(model, data)
 
-    site_id = model.site('gripper_tip').id
-    ee_id = model.body(EE_NAME).id
+    # site_id = model.site('gripper_tip').id
+    # ee_id = model.body(EE_NAME).id
     
-    data.mocap_pos[0] = data.site_xpos[site_id]
-    data.mocap_pos[0] = [0.00394128,0.39627973,0.4555668 ]
-    data.mocap_quat[0] = [0.7071, 0.7071, 0, 0]
+    # data.mocap_pos[0] = data.site_xpos[site_id]
+    data.mocap_pos[0] = [0,0.396,0.38]
+    # data.mocap_quat[0] = [0.7071, 0.7071, 0, 0]
+    data.mocap_quat[0] = [1, 0, 0, 0]
 
-    quat_res = np.zeros(4)
-    mujoco.mju_mat2Quat(quat_res, data.site_xmat[site_id])
-    data.mocap_quat[0] = quat_res
+    # quat_res = np.zeros(4)
+    # mujoco.mju_mat2Quat(quat_res, data.site_xmat[site_id])
+    # data.mocap_quat[0] = quat_res
 
             
 def main():

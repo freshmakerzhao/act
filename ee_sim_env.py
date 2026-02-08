@@ -136,11 +136,9 @@ class BimanualViperXEETask(base.Task):
         elif self.arm_nums == 1:
             physics.named.data.qpos[:8] = START_FAIRINO_POSE
             physics.forward()
-            np.copyto(physics.data.mocap_pos[0], np.array([0.00394128,0.39627973,0.4555668]))
-            np.copyto(physics.data.mocap_quat[0],  [0.7071, 0.7071, 0, 0])
+            np.copyto(physics.data.mocap_pos[0], np.array([0,0.396,0.38]))
+            np.copyto(physics.data.mocap_quat[0], [1, 0, 0, 0])
 
-
-            # reset gripper control
             close_gripper_control = np.array([
                 PUPPET_GRIPPER_POSITION_CLOSE,
                 -PUPPET_GRIPPER_POSITION_CLOSE,

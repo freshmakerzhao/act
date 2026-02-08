@@ -10,7 +10,7 @@
         <include file="fairino_fr5.xml" />
         
         <!-- <body mocap="true" name="mocap_right" pos="0 0.396 0.425"> -->
-        <body mocap="true" name="mocap_right" pos="-0.32 0.2 0.05">
+        <body mocap="true" name="mocap_right" pos="0 0.396 0.38">
             <site pos="0 0 0" size="0.003 0.003 0.03" type="box" name="mocap_right_site1" rgba="1 0 0 1"/>
             <site pos="0 0 0" size="0.003 0.03 0.003" type="box" name="mocap_right_site2" rgba="1 0 0 1"/>
             <site pos="0 0 0" size="0.03 0.003 0.003" type="box" name="mocap_right_site3" rgba="1 0 0 1"/>

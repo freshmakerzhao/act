@@ -50,7 +50,7 @@ def make_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
     elif 'sim_lifting_cube' in task_name:
         xml_path = os.path.join(XML_DIR, equipment_model, 'single_viperx_transfer_cube.xml')
         physics = mujoco.Physics.from_xml_path(xml_path)
-        task = LiftingCubeTask(random=False)
+        task = LiftingCubeTask(random=False, equipment_model=equipment_model)
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
                                   n_sub_steps=None, flat_observation=False)
     else:
@@ -261,17 +261,29 @@ class InsertionTask(BimanualViperXTask):
         return reward
 
 class LiftingCubeTask(BimanualViperXTask):
-    def __init__(self, random=None):
+    def __init__(self, random=None, equipment_model='vx300s_single'):
         super().__init__(random=random, arm_nums=1)
         self.max_reward = 4
+        self.equipment_model = equipment_model
 
     def initialize_episode(self, physics):
         """Sets the state of the environment at the start of each episode."""
         # TODO Notice: this function does not randomize the env configuration. Instead, set BOX_POSE from outside
         # reset qpos, control and box position
+
+         # 根据机器人类型选择初始姿态
+        if 'fairino5_single' in self.equipment_model:
+            start_pose = START_FAIRINO_POSE
+            print("use Fairino FR5 config file")
+        elif 'vx300s_single' in self.equipment_model:
+            start_pose = START_ARM_POSE[:8]
+            print("use VX300s config file")
+        else:
+            raise ValueError(f"Unknown equipment model: {self.equipment_model}")
+
         with physics.reset_context():
-            physics.named.data.qpos[:8] = START_FAIRINO_POSE
-            np.copyto(physics.data.ctrl, START_FAIRINO_POSE)
+            physics.named.data.qpos[:8] = start_pose
+            np.copyto(physics.data.ctrl, start_pose)
             assert BOX_POSE[0] is not None
             physics.named.data.qpos[-7:] = BOX_POSE[0]
             # print(f"{BOX_POSE=}")

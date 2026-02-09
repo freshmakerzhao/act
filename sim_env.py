@@ -276,7 +276,7 @@ class LiftingCubeTask(BimanualViperXTask):
             start_pose = START_FAIRINO_POSE
             print("use Fairino FR5 config file")
         elif 'vx300s_single' in self.equipment_model:
-            start_pose = START_ARM_POSE[:8]
+            start_pose = START_SINGLE_ARM_POSE
             print("use VX300s config file")
         else:
             raise ValueError(f"Unknown equipment model: {self.equipment_model}")

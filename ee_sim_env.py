@@ -53,7 +53,7 @@ def make_ee_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
     elif "sim_lifting_cube" in task_name:
         xml_path = os.path.join(XML_DIR, equipment_model, 'single_viperx_ee_transfer_cube.xml')
         physics = mujoco.Physics.from_xml_path(xml_path) # 加载物理引擎，其能够读取关节位置、推进一个step、渲染图像
-        task = LiftingCubeEETask(random=False) # 任务对象，初始化基本任务设置、奖励函数、观测数据提取
+        task = LiftingCubeEETask(random=False, arm_nums=1, equipment_model=equipment_model) # 任务对象，初始化基本任务设置、奖励函数、观测数据提取
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
                                   n_sub_steps=None, flat_observation=False)
     else:
@@ -61,9 +61,10 @@ def make_ee_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
     return env
 
 class BimanualViperXEETask(base.Task):
-    def __init__(self, random=None, arm_nums=2):
+    def __init__(self, random=None, arm_nums=2, equipment_model='vx300s_single'):
         super().__init__(random=random)
         self.arm_nums = arm_nums  # 2 双臂, 1 单臂
+        self.equipment_model = equipment_model
 
     # 在物理仿真之前执行，physics 是 mujoco.Physics 类的实例，是 MuJoCo 物理引擎的 Python 接口，包含了整个仿真世界的所有状态和配置。
     def before_step(self, action, physics):
@@ -134,18 +135,25 @@ class BimanualViperXEETask(base.Task):
             np.copyto(physics.data.ctrl, close_gripper_control)
 
         elif self.arm_nums == 1:
-            physics.named.data.qpos[:8] = START_FAIRINO_POSE
-            physics.forward()
-            np.copyto(physics.data.mocap_pos[0], np.array([0,0.396,0.38]))
-            np.copyto(physics.data.mocap_quat[0], [1, 0, 0, 0])
-
+            if "vx300s_single" in self.equipment_model:
+                physics.named.data.qpos[:8] = START_SINGLE_ARM_POSE
+                physics.forward()
+                np.copyto(physics.data.mocap_pos[0], np.array([-0.095, 0.50, 0.425]))
+                np.copyto(physics.data.mocap_quat[0], [1, 0, 0, 0])
+            elif "fairino_fr5" in self.equipment_model:
+                physics.named.data.qpos[:8] = START_FAIRINO_POSE
+                physics.forward()
+                np.copyto(physics.data.mocap_pos[0], np.array([0, 0.396, 0.38]))
+                np.copyto(physics.data.mocap_quat[0], [1, 0, 0, 0])
+            else:
+                raise NotImplementedError(f"Unknown equipment model: {self.equipment_model}")
             close_gripper_control = np.array([
                 PUPPET_GRIPPER_POSITION_CLOSE,
                 -PUPPET_GRIPPER_POSITION_CLOSE,
             ])
             np.copyto(physics.data.ctrl, close_gripper_control)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"Unknown arm_nums: {self.arm_nums}")
 
     def initialize_episode(self, physics):
         """Sets the state of the environment at the start of each episode."""
@@ -268,8 +276,8 @@ class TransferCubeEETask(BimanualViperXEETask):
         return reward
 
 class LiftingCubeEETask(BimanualViperXEETask):
-    def __init__(self, random=None):
-        super().__init__(random=random, arm_nums=1)
+    def __init__(self, random=None, arm_nums=1, equipment_model='vx300s_single'):
+        super().__init__(random=random, arm_nums=arm_nums, equipment_model=equipment_model)
         self.max_reward = 4
 
     def initialize_episode(self, physics):

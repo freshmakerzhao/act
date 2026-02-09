@@ -2,24 +2,24 @@
   <body name="fairino_fr5/base_link" pos="0.5 0.5 0">
     <geom type="mesh" mesh="fairino_fr5_1_base_link" name="fairino_fr5/base_link_geom" rgba="0.898 0.917 0.929 1" contype="0" conaffinity="0"/>
     
-    <body name="fairino_fr5/shoulder_link" pos="0 0 0.001">
+    <body name="fairino_fr5/shoulder_link">
       <inertial pos="5.0029e-07 -0.0040922 0.14629" quat="0.999588 0.0287044 7.54149e-06 -1.58789e-05" mass="4.3771" diaginertia="0.010731 0.0104154 0.00817191"/>
-      <joint name="fairino_fr5/j1" pos="0 0 0" axis="0 0 1" range="-3.0543 3.0543" limited="true" damping="0.01" frictionloss="50" />
+      <joint name="fairino_fr5/j1" pos="0 0 0" axis="0 0 1" range="-3.0543 3.0543" limited="true"/>
       <geom type="mesh" mesh="fairino_fr5_2_shoulder_link"  name="fairino_fr5/shoulder_link_geom" rgba="0.898 0.917 0.929 1" />
       
       <body name="fairino_fr5/upperarm_link" pos="0 0 0.152" quat="0.499998 0.5 0.5 -0.500002">
         <inertial  pos="-0.2125 -5.7643e-09 0.1346" quat="0.5 0.5 0.5 0.5" mass="14.458" diaginertia="0.4559 0.44974 0.028392"/>
-        <joint name="fairino_fr5/j2" pos="0 0 0" axis="0 0 1" range="-4.6251 3.14159" limited="true" damping="0.01" frictionloss="60" />
+        <joint name="fairino_fr5/j2" pos="0 0 0" axis="0 0 1" range="-4.6251 1.4835" limited="true" damping="0.01" frictionloss="60" />
         <geom type="mesh" mesh="fairino_fr5_3_upperarm_link" name="fairino_fr5/upperarm_link_geom" rgba="0.898 0.917 0.929 1" />
         
         <body name="fairino_fr5/forearm_link" pos="-0.425 0 0" quat="0.707105 0 0 0.707108">
           <inertial pos="-0.18793 -8.4503e-07 0.0066357" quat="0.510607 0.489172 0.489196 0.510568" mass="7.6737" diaginertia="0.16971 0.168834 0.00821541"/>
-          <joint name="fairino_fr5/j3"  pos="0 0 0" axis="0 0 1" range="-3.14159 3.14159" limited="true" damping="0.01" frictionloss="60" />
+          <joint name="fairino_fr5/j3"  pos="0 0 0" axis="0 0 1" range="-2.8274 2.8274" limited="true" damping="0.01" frictionloss="60" />
           <geom type="mesh" mesh="fairino_fr5_4_forearm_link" name="fairino_fr5/forearm_link_geom" rgba="0.898 0.917 0.929 1" />
           
           <body name="fairino_fr5/wrist1_link" pos="-0.39501 0 0" quat="0.707105 0 0 -0.707108">
             <inertial pos="4.98e-07 -0.003754 0.097155" quat="0.736149 0.676819 -6.33095e-05 7.15237e-05" mass="1.6266" diaginertia="0.00216 0.00199337 0.00154233" />
-            <joint name="fairino_fr5/j4" pos="0 0 0" axis="0 0 1" range="-4.6251 3.14159" limited="true" damping="0.01" frictionloss="30" />
+            <joint name="fairino_fr5/j4" pos="0 0 0" axis="0 0 1" range="-4.6251 1.4835" limited="true" damping="0.01" frictionloss="30" />
             <geom type="mesh" mesh="fairino_fr5_5_wrist1_link" name="fairino_fr5/wrist1_link_geom" rgba="0.898 0.917 0.929 1" />
             
             <body name="fairino_fr5/wrist2_link" pos="0 0 0.1021" quat="0.499998 0.5 0.5 -0.500002">

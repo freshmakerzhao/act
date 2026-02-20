@@ -140,7 +140,7 @@ class BimanualViperXEETask(base.Task):
                 physics.forward()
                 np.copyto(physics.data.mocap_pos[0], np.array([-0.095, 0.50, 0.425]))
                 np.copyto(physics.data.mocap_quat[0], [1, 0, 0, 0])
-            elif "fairino_fr5" in self.equipment_model:
+            elif "fairino5_single" in self.equipment_model:
                 physics.named.data.qpos[:8] = START_FAIRINO_POSE
                 physics.forward()
                 np.copyto(physics.data.mocap_pos[0], np.array([0, 0.396, 0.38]))

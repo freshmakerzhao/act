@@ -20,7 +20,7 @@
 
         <camera name="right_pillar" pos="2.0 -4.0 2.0" fovy="78" mode="targetbody" target="midair"/>
         <camera name="top" pos="4.0 0 5.0" fovy="78" mode="targetbody" target="midair"/>
-        <camera name="angle" pos="-2.0 4.0 3.0" fovy="78" mode="targetbody" target="excavator_simple/swing"/>
+        <camera name="angle" pos="4.0 8.0 3.0" fovy="78" mode="targetbody" target="midair"/>
         <camera name="front_close" pos="6.0 0 1.0" fovy="78" mode="targetbody" target="midair"/>
     </worldbody>
 </mujocoinclude>

@@ -16,6 +16,8 @@ import IPython
 e = IPython.embed
 
 BOX_POSE = [None] # to be changed from outside
+EXCAVATOR_MAIN_JOINTS = ('j1_swing', 'j2_boom', 'j3_stick', 'j4_bucket')
+EXCAVATOR_START_POSE = np.array([0.0, -0.25, -0.5, -0.5])
 
 def make_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
     """
@@ -48,9 +50,14 @@ def make_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
                                   n_sub_steps=None, flat_observation=False)
     elif 'sim_lifting_cube' in task_name:
-        xml_path = os.path.join(XML_DIR, equipment_model, 'single_viperx_transfer_cube.xml')
-        physics = mujoco.Physics.from_xml_path(xml_path)
-        task = LiftingCubeTask(random=False, equipment_model=equipment_model)
+        if equipment_model == 'excavator_simple':
+            xml_path = os.path.join(XML_DIR, equipment_model, 'single_viperx_transfer_cube.xml')
+            physics = mujoco.Physics.from_xml_path(xml_path)
+            task = ExcavatorSimpleLiftingCubeTask(random=False, equipment_model=equipment_model)
+        else:
+            xml_path = os.path.join(XML_DIR, equipment_model, 'single_viperx_transfer_cube.xml')
+            physics = mujoco.Physics.from_xml_path(xml_path)
+            task = LiftingCubeTask(random=False, equipment_model=equipment_model)
         env = control.Environment(physics, task, time_limit=20, control_timestep=DT,
                                   n_sub_steps=None, flat_observation=False)
     else:
@@ -319,6 +326,88 @@ class LiftingCubeTask(BimanualViperXTask):
         if touch_right_gripper and touch_tray:
             reward = 3
         if not touch_right_gripper and touch_tray:
+            reward = 4
+        return reward
+
+class ExcavatorSimpleLiftingCubeTask(base.Task):
+    def __init__(self, random=None, equipment_model='excavator_simple'):
+        super().__init__(random=random)
+        self.max_reward = 4
+        self.equipment_model = equipment_model
+        self._touched_box = False # 铲斗是否碰触过box
+
+    def before_step(self, action, physics):
+        if len(action) != len(EXCAVATOR_MAIN_JOINTS):
+            raise ValueError(f"Excavator action must be {len(EXCAVATOR_MAIN_JOINTS)}D, got {len(action)}")
+        np.copyto(physics.data.ctrl, action)
+
+    def initialize_episode(self, physics):
+        self._touched_box = False # 铲斗是否碰触过box
+        with physics.reset_context():
+            for joint_name, joint_value in zip(EXCAVATOR_MAIN_JOINTS, EXCAVATOR_START_POSE):
+                physics.named.data.qpos[joint_name] = joint_value
+            np.copyto(physics.data.ctrl, EXCAVATOR_START_POSE)
+            assert BOX_POSE[0] is not None
+            box_joint_id = physics.model.name2id('red_box_joint', 'joint')
+            box_start_idx = physics.model.jnt_qposadr[box_joint_id]
+            physics.named.data.qpos[box_start_idx:box_start_idx + 7] = BOX_POSE[0]
+        physics.forward()
+        super().initialize_episode(physics)
+
+    @staticmethod
+    def get_env_state(physics):
+        box_joint_id = physics.model.name2id('red_box_joint', 'joint')
+        box_start_idx = physics.model.jnt_qposadr[box_joint_id]
+        env_state = physics.data.qpos.copy()[box_start_idx:]
+        return env_state
+
+    def get_qpos(self, physics):
+        qpos_raw = physics.data.qpos
+        qpos_indices = [physics.model.jnt_qposadr[physics.model.name2id(joint_name, 'joint')]
+                        for joint_name in EXCAVATOR_MAIN_JOINTS]
+        return qpos_raw[qpos_indices].copy()
+
+    def get_qvel(self, physics):
+        qvel_raw = physics.data.qvel
+        qvel_indices = [physics.model.jnt_dofadr[physics.model.name2id(joint_name, 'joint')]
+                        for joint_name in EXCAVATOR_MAIN_JOINTS]
+        return qvel_raw[qvel_indices].copy()
+
+    def get_observation(self, physics):
+        obs = collections.OrderedDict()
+        obs['qpos'] = self.get_qpos(physics)
+        obs['qvel'] = self.get_qvel(physics)
+        obs['env_state'] = self.get_env_state(physics)
+        obs['images'] = dict()
+        obs['images']['top'] = physics.render(height=480, width=640, camera_id='top')
+        obs['images']['angle'] = physics.render(height=480, width=640, camera_id='angle')
+        obs['images']['vis'] = physics.render(height=480, width=640, camera_id='front_close')
+        return obs
+
+    def get_reward(self, physics):
+        all_contact_pairs = []
+        for i_contact in range(physics.data.ncon):
+            id_geom_1 = physics.data.contact[i_contact].geom1
+            id_geom_2 = physics.data.contact[i_contact].geom2
+            name_geom_1 = physics.model.id2name(id_geom_1, 'geom')
+            name_geom_2 = physics.model.id2name(id_geom_2, 'geom')
+            contact_pair = (name_geom_1, name_geom_2)
+            all_contact_pairs.append(contact_pair)
+
+        box_geom = "red_box"
+        bucket_geom = "excavator_bucket"
+        tray_geom = "yellow_dump_tray"
+
+        touch_bucket_box = (box_geom, bucket_geom) in all_contact_pairs or (bucket_geom, box_geom) in all_contact_pairs
+        touch_bucket_tray = (bucket_geom, tray_geom) in all_contact_pairs or (tray_geom, bucket_geom) in all_contact_pairs
+
+        reward = 0
+        if touch_bucket_box:
+            self._touched_box = True
+            reward = 1
+        if self._touched_box and not touch_bucket_box:
+            reward = 2
+        if touch_bucket_tray:
             reward = 4
         return reward
 

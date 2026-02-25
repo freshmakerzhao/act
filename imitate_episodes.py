@@ -47,9 +47,11 @@ def main(args):
     episode_len = task_config['episode_len']
     camera_names = task_config['camera_names']
 
-    # 双臂14，单臂7
+    # 双臂14，单臂7，挖掘机4
     if 'bimanual' in equipment_model:
-        state_dim = 14 
+        state_dim = 14
+    elif 'excavator_simple' in equipment_model:
+        state_dim = 4
     else:
         state_dim = 7
 

@@ -1,7 +1,8 @@
 import pathlib
+import numpy as np
 
 ### Task parameters
-DATA_DIR = '/home/zhaoshuai/workspace_act/act/data_sim_episodes/fairino5'
+DATA_DIR = '/home/zhaoshuai/workspace_act/act/data_sim_episodes/excavator_simple'
 SIM_TASK_CONFIGS = {
     # vx300s_bimanual搬方块任务
     'sim_transfer_cube_scripted':{
@@ -47,6 +48,11 @@ JOINT_NAMES = ["waist", "shoulder", "elbow", "forearm_roll", "wrist_angle", "wri
 START_ARM_POSE = [0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239,  0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239]
 START_SINGLE_ARM_POSE = [0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239]
 START_FAIRINO_POSE = [0, 0, 0, 0, 0, 0, 0.057, -0.057]
+
+# ========================= 挖掘机 ==================================
+EXCAVATOR_MAIN_JOINTS = ('j1_swing', 'j2_boom', 'j3_stick', 'j4_bucket')
+EXCAVATOR_START_POSE = np.array([0.0, -0.25, -0.5, -0.5])
+# ========================= 挖掘机 ==================================
 
 XML_DIR = str(pathlib.Path(__file__).parent.resolve()) + '/assets/' # note: absolute path
 

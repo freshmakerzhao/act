@@ -12,12 +12,12 @@ from constants import MASTER_GRIPPER_POSITION_NORMALIZE_FN
 from constants import PUPPET_GRIPPER_POSITION_NORMALIZE_FN
 from constants import PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN
 
+from constants import EXCAVATOR_MAIN_JOINTS,EXCAVATOR_START_POSE 
+
 import IPython
 e = IPython.embed
 
 BOX_POSE = [None] # to be changed from outside
-EXCAVATOR_MAIN_JOINTS = ('j1_swing', 'j2_boom', 'j3_stick', 'j4_bucket')
-EXCAVATOR_START_POSE = np.array([0.0, -0.25, -0.5, -0.5])
 
 def make_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
     """

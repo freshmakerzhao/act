@@ -9,6 +9,8 @@ from constants import PUPPET_GRIPPER_POSITION_UNNORMALIZE_FN
 from constants import PUPPET_GRIPPER_POSITION_NORMALIZE_FN
 from constants import PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN
 
+from constants import EXCAVATOR_MAIN_JOINTS, EXCAVATOR_START_POSE
+
 from utils import sample_box_pose, sample_insertion_pose, sample_box_pose_for_excavator
 from dm_control import mujoco
 from dm_control.rl import control
@@ -16,11 +18,6 @@ from dm_control.suite import base
 
 import IPython
 e = IPython.embed
-
-
-EXCAVATOR_MAIN_JOINTS = ('j1_swing', 'j2_boom', 'j3_stick', 'j4_bucket')
-EXCAVATOR_START_POSE = np.array([0.0, -0.25, -0.5, -0.5])
-
 
 def make_ee_sim_env(task_name, equipment_model: str = 'vx300s_bimanual'):
     """

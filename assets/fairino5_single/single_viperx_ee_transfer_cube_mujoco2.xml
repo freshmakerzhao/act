@@ -3,7 +3,7 @@
     <include file="fairino_fr5_dependencies.xml"/>
 
     <equality>
-        <weld body1="mocap_right" body2="fairino_fr5/wrist3_link" solref="0.005 1" solimp="0.99 0.99 0.001" />
+        <weld body1="mocap_right" body2="fairino_fr5/wrist3_link" solref="0.01 1" solimp=".25 .25 0.001" />
     </equality>
     
     <worldbody>

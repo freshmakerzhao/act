@@ -11,7 +11,7 @@ from einops import rearrange
 from constants import DT
 from constants import PUPPET_GRIPPER_JOINT_OPEN
 from utils import load_data # data functions
-from utils import sample_box_pose, sample_insertion_pose # robot functions
+from utils import sample_box_pose, sample_box_pose_for_excavator, sample_insertion_pose # robot functions
 from utils import compute_dict_mean, set_seed, detach_dict # helper functions
 from policy import ACTPolicy, CNNMLPPolicy
 from visualize_episodes import save_videos
@@ -213,7 +213,10 @@ def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanu
         elif 'sim_insertion' in task_name:
             BOX_POSE[0] = np.concatenate(sample_insertion_pose()) # used in sim reset
         elif 'sim_lifting_cube' in task_name:
-            BOX_POSE[0] = sample_box_pose()  # used in sim reset
+            if 'excavator' in equipment_model:
+                BOX_POSE[0] = sample_box_pose_for_excavator()
+            else:
+                BOX_POSE[0] = sample_box_pose()
         else:
             raise NotImplementedError
         ts = env.reset()

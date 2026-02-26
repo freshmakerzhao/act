@@ -11,7 +11,7 @@ from einops import rearrange
 from constants import DT
 from constants import PUPPET_GRIPPER_JOINT_OPEN
 from utils import load_data # data functions
-from utils import sample_box_pose, sample_insertion_pose # robot functions
+from utils import sample_box_pose, sample_box_pose_for_excavator, sample_insertion_pose # robot functions
 from utils import compute_dict_mean, set_seed, detach_dict # helper functions
 from policy import ACTPolicy, CNNMLPPolicy
 from visualize_episodes import save_videos
@@ -47,9 +47,11 @@ def main(args):
     episode_len = task_config['episode_len']
     camera_names = task_config['camera_names']
 
-    # 双臂14，单臂7
+    # 双臂14，单臂7，挖掘机4
     if 'bimanual' in equipment_model:
-        state_dim = 14 
+        state_dim = 14
+    elif 'excavator_simple' in equipment_model:
+        state_dim = 4
     else:
         state_dim = 7
 
@@ -152,7 +154,7 @@ def get_image(ts, camera_names):
     curr_image = torch.from_numpy(curr_image / 255.0).float().cuda().unsqueeze(0)
     return curr_image
 
-
+# 回放
 def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanual'):
     set_seed(1000)
     ckpt_dir = config['ckpt_dir']
@@ -211,7 +213,10 @@ def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanu
         elif 'sim_insertion' in task_name:
             BOX_POSE[0] = np.concatenate(sample_insertion_pose()) # used in sim reset
         elif 'sim_lifting_cube' in task_name:
-            BOX_POSE[0] = sample_box_pose()  # used in sim reset
+            if 'excavator' in equipment_model:
+                BOX_POSE[0] = sample_box_pose_for_excavator()
+            else:
+                BOX_POSE[0] = sample_box_pose()
         else:
             raise NotImplementedError
         ts = env.reset()

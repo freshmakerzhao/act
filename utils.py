@@ -141,6 +141,17 @@ def sample_box_pose():
     cube_quat = np.array([1, 0, 0, 0])
     return np.concatenate([cube_position, cube_quat])
 
+def sample_box_pose_for_excavator():
+    x_range = [3.4, 4.4]
+    y_range = [-1, 1]
+    z_range = [0.25, 0.25]
+
+    ranges = np.vstack([x_range, y_range, z_range])
+    cube_position = np.random.uniform(ranges[:, 0], ranges[:, 1])
+
+    cube_quat = np.array([1, 0, 0, 0])
+    return np.concatenate([cube_position, cube_quat])
+
 def sample_insertion_pose():
     # Peg
     x_range = [0.1, 0.2]

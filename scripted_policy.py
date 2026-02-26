@@ -160,6 +160,32 @@ class LiftingAndMovingPolicy(BasePolicy):
             {"t": 400, "xyz": init_mocap_pose_right[:3], "quat": init_mocap_pose_right[3:], "gripper": 1},
         ]
 
+
+class ExcavatorMocapLiftingPolicy(BasePolicy):
+
+    def generate_trajectory(self, ts_first):
+        # 读取初始 mocap 位姿与箱体位姿，生成搬运轨迹（挖掘机版）
+        init_mocap_pose_right = ts_first.observation['mocap_pose_right']
+
+        box_info = np.array(ts_first.observation['env_state'])
+        box_xyz = box_info[:3]
+
+        gripper_pick_quat = Quaternion(init_mocap_pose_right[3:])
+
+        tray_xyz = np.array([0.0, 4.0, 0.06])
+
+        # 挖掘机没有夹爪，gripper 固定为 0
+
+        self.right_trajectory = [
+            {"t": 0, "xyz": init_mocap_pose_right[:3], "quat": init_mocap_pose_right[3:], "gripper": 0},
+            {"t": 90, "xyz": box_xyz + np.array([-0.5, 0.0, 0.30]), "quat": gripper_pick_quat.elements, "gripper": 0},
+            {"t": 140, "xyz": box_xyz + np.array([-0.5, 0.0, 0.90]), "quat": gripper_pick_quat.elements, "gripper": 0},
+            {"t": 300, "xyz": tray_xyz + np.array([-1.0, 0.0, 0.90]), "quat": gripper_pick_quat.elements, "gripper": 0},
+            {"t": 320, "xyz": tray_xyz + np.array([-1.0, 0.0, 0.20]), "quat": gripper_pick_quat.elements, "gripper": 0},
+            {"t": 340, "xyz": tray_xyz + np.array([-1.0, 0.0, 0.50]), "quat": gripper_pick_quat.elements, "gripper": 0},
+            {"t": 400, "xyz": init_mocap_pose_right[:3], "quat": init_mocap_pose_right[3:], "gripper": 0},
+        ]
+
 class InsertionPolicy(BasePolicy):
 
     def generate_trajectory(self, ts_first):
@@ -209,11 +235,11 @@ class InsertionPolicy(BasePolicy):
 
         ]
 
-
 def test_policy(task_name, equipment_model="vx300s_bimanual"):
     # 在 EE 环境中回放脚本策略
     onscreen_render = True
     inject_noise = False
+    render_cam = 'angle'  # 可选: 'vis', 'angle', 'top'
 
     # 根据任务名创建对应 EE 环境
     episode_len = SIM_TASK_CONFIGS[task_name]['episode_len']
@@ -225,7 +251,10 @@ def test_policy(task_name, equipment_model="vx300s_bimanual"):
         policy_cls = InsertionPolicy
     elif 'sim_lifting' in task_name:
         env = make_ee_sim_env('sim_lifting_cube', equipment_model=equipment_model)
-        policy_cls = LiftingAndMovingPolicy
+        if equipment_model == 'excavator_simple':
+            policy_cls = ExcavatorMocapLiftingPolicy
+        else:
+            policy_cls = LiftingAndMovingPolicy
     else:
         raise NotImplementedError
 
@@ -234,7 +263,7 @@ def test_policy(task_name, equipment_model="vx300s_bimanual"):
         episode = [ts]
         if onscreen_render:
             ax = plt.subplot()
-            plt_img = ax.imshow(ts.observation['images']['angle'])
+            plt_img = ax.imshow(ts.observation['images'][render_cam])
             plt.ion()
 
         policy = policy_cls(inject_noise)
@@ -244,7 +273,7 @@ def test_policy(task_name, equipment_model="vx300s_bimanual"):
             ts = env.step(action)
             episode.append(ts)
             if onscreen_render:
-                plt_img.set_data(ts.observation['images']['angle'])
+                plt_img.set_data(ts.observation['images'][render_cam])
                 plt.pause(0.02)
         plt.close()
 
@@ -258,7 +287,11 @@ def test_policy(task_name, equipment_model="vx300s_bimanual"):
 if __name__ == '__main__':
 
     test_task_name = 'sim_lifting_cube_scripted'
-    equipment_model="fairino5_single"
+    equipment_model="excavator_simple"
+
+
+    # test_task_name = 'sim_lifting_cube_scripted'
+    # equipment_model="fairino5_single"
 
     # test_task_name = 'sim_lifting_cube_scripted'
     # equipment_model="vx300s_single"

@@ -232,6 +232,8 @@ def build(args):
     equipment_model = args.equipment_model if "equipment_model" in args else 'vx300s_bimanual'
     if 'bimanual' in equipment_model:
         state_dim = 14
+    elif 'excavator_simple' in equipment_model:
+        state_dim = 4
     else:
         state_dim = 7
 
@@ -261,7 +263,13 @@ def build(args):
     return model
 
 def build_cnnmlp(args):
-    state_dim = 7 # 14 双臂14，单臂7
+    equipment_model = args.equipment_model if "equipment_model" in args else 'vx300s_bimanual'
+    if 'bimanual' in equipment_model:
+        state_dim = 14
+    elif 'excavator_simple' in equipment_model:
+        state_dim = 4
+    else:
+        state_dim = 7
 
     # From state
     # backbone = None # from state for now, no need for conv nets

@@ -154,7 +154,7 @@ def get_image(ts, camera_names):
     curr_image = torch.from_numpy(curr_image / 255.0).float().cuda().unsqueeze(0)
     return curr_image
 
-
+# 回放
 def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanual'):
     set_seed(1000)
     ckpt_dir = config['ckpt_dir']

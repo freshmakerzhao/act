@@ -26,10 +26,10 @@
     </worldbody>
 
     <actuator>
-        <position name="act_swing" joint="j1_swing" ctrllimited="true" ctrlrange="-3.14 3.14" kp="5e5" kv="5e3" user="1"/>
-        <position name="act_boom" joint="j2_boom" ctrllimited="true" ctrlrange="-0.9 0.3" kp="1e6" kv="1e4" user="1"/>
-        <position name="act_stick" joint="j3_stick" ctrllimited="true" ctrlrange="-0.8 1.0" kp="1e6" kv="1e4" user="1"/>
-        <position name="act_bucket" joint="j4_bucket" ctrllimited="true" ctrlrange="-2.1 0.6" kp="5e5" kv="5e3" user="1"/>
+        <position name="act_swing" joint="j1_swing" ctrllimited="true" ctrlrange="-3.14 3.14" kp="1e7" kv="1e5" user="1"/>
+        <position name="act_boom" joint="j2_boom" ctrllimited="true" ctrlrange="-0.9 0.3" kp="5e7" kv="5e5" user="1"/>
+        <position name="act_stick" joint="j3_stick" ctrllimited="true" ctrlrange="-0.8 1.0" kp="5e7" kv="5e5" user="1"/>
+        <position name="act_bucket" joint="j4_bucket" ctrllimited="true" ctrlrange="-2.1 0.6" kp="1e7" kv="1e5" user="1"/>
     </actuator>
 
     <contact>

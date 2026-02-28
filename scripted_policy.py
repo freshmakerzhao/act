@@ -135,8 +135,8 @@ class LiftingAndMovingPolicy(BasePolicy):
 
         # 右臂抓取时的目标朝向（基于初始朝向旋转）
         gripper_pick_quat = Quaternion(init_mocap_pose_right[3:])
-        gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[0.0, 1.0, 0.0], degrees=-30) # 这里是在初始朝向基础上绕y轴旋转-60度,vx300s使用
-        # gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[0.0, 1.0, 0.0], degrees=-60) # 这里是在初始朝向基础上绕y轴旋转-60度,法奥不需要
+        gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[1.0, 0.0, 0.0], degrees=-30) # 初始朝向基础上绕x轴旋转-30度, 法奥使用
+        # gripper_pick_quat = gripper_pick_quat * Quaternion(axis=[0.0, 1.0, 0.0], degrees=-60) # 初始朝向基础上绕y轴旋转-60度, vx300s使用
 
 
         tray_xyz = np.array([0.4, 0.85, 0.06])             # 盘子位置

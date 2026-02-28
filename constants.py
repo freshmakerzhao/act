@@ -2,7 +2,7 @@ import pathlib
 import numpy as np
 
 ### Task parameters
-DATA_DIR = '/home/zhaoshuai/workspace_act/act/data_sim_episodes/excavator_simple'
+DATA_DIR = '/home/zhaoshuai/workspace_act/PACT/data_sim_episodes/fairino5_single_26022801' # absolute path
 SIM_TASK_CONFIGS = {
     # vx300s_bimanual搬方块任务
     'sim_transfer_cube_scripted':{
@@ -44,10 +44,17 @@ SIM_TASK_CONFIGS = {
 
 ### Simulation envs fixed constants
 DT = 0.02
+
+# ========================= vx300s ==================================
 JOINT_NAMES = ["waist", "shoulder", "elbow", "forearm_roll", "wrist_angle", "wrist_rotate"]
-START_ARM_POSE = [0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239,  0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239]
-START_SINGLE_ARM_POSE = [0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239]
-START_FAIRINO_POSE = [0, 0, 0, 0, 0, 0, 0.057, -0.057]
+START_ARM_POSE = [0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239,  0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239] # 双臂初始位置，前6+2维是左臂，后6+2维是右臂
+START_SINGLE_ARM_POSE = [0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239] # vx300s 单臂初始位置
+# ========================= vx300s ==================================
+
+# ========================= fairino single ==================================
+START_FAIRINO_POSE_origin = [0, 0, 0, 0, 0, 0, 0.057, -0.057]
+START_FAIRINO_POSE = [0, -1.5708, 1.5708, -1.5708, -1.5708, 0, 0.057, -0.057]
+# ========================= fairino single==================================
 
 # ========================= 挖掘机 ==================================
 EXCAVATOR_MAIN_JOINTS = ('j1_swing', 'j2_boom', 'j3_stick', 'j4_bucket')

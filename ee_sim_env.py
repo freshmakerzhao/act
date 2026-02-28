@@ -184,8 +184,19 @@ class BimanualViperXEETask(base.Task):
             elif "fairino5_single" in self.equipment_model:
                 physics.named.data.qpos[:8] = START_FAIRINO_POSE
                 physics.forward()
-                np.copyto(physics.data.mocap_pos[0], np.array([0, 0.396, 0.38]))
-                np.copyto(physics.data.mocap_quat[0], [1, 0, 0, 0])
+                # np.copyto(physics.data.mocap_pos[0], np.array([0, 0.396, 0.38]))
+                # np.copyto(physics.data.mocap_quat[0], [0.707, 0, 0.707, 0])
+
+                tcp_pos = physics.named.data.site_xpos['tcp_center'].copy()
+                tcp_mat = physics.named.data.site_xmat['tcp_center'].copy()
+
+                # 将旋转矩阵 (xmat) 转换为 MuJoCo 标准的四元数 [w, x, y, z]
+                tcp_quat = np.zeros(4)
+                mujoco.mju_mat2Quat(tcp_quat, tcp_mat.reshape(9))
+
+                # 将 Mocap 吸附到夹爪最尖端的 TCP 中心
+                np.copyto(physics.data.mocap_pos[0], tcp_pos)
+                np.copyto(physics.data.mocap_quat[0], tcp_quat)
             elif "excavator_simple" in self.equipment_model:
                 for joint_name, joint_value in zip(EXCAVATOR_MAIN_JOINTS, EXCAVATOR_START_POSE):
                     physics.named.data.qpos[joint_name] = joint_value

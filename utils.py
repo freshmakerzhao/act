@@ -141,6 +141,38 @@ def sample_box_pose():
     cube_quat = np.array([1, 0, 0, 0])
     return np.concatenate([cube_position, cube_quat])
 
+
+def sample_box_pose_eval():
+    x_range = [0.0, 0.2]
+    y_range = [0.4, 0.6]
+    z_range = [0.05, 0.05]
+
+    ranges = np.vstack([x_range, y_range, z_range])
+    cube_position = np.random.uniform(ranges[:, 0], ranges[:, 1])
+
+    cube_quat = np.array([1, 0, 0, 0])
+    return np.concatenate([cube_position, cube_quat])
+
+
+def sample_box_pose_eval_ring():
+    outer_x_range = [-0.1, 0.3]
+    outer_y_range = [0.3, 0.7]
+    inner_x_range = [0.0, 0.2]
+    inner_y_range = [0.4, 0.6]
+    z_range = [0.05, 0.05]
+
+    outer_ranges = np.vstack([outer_x_range, outer_y_range, z_range])
+
+    for _ in range(1000):
+        cube_position = np.random.uniform(outer_ranges[:, 0], outer_ranges[:, 1])
+        x, y = cube_position[0], cube_position[1]
+        in_inner = (inner_x_range[0] <= x <= inner_x_range[1]) and (inner_y_range[0] <= y <= inner_y_range[1])
+        if not in_inner:
+            cube_quat = np.array([1, 0, 0, 0])
+            return np.concatenate([cube_position, cube_quat])
+
+    raise RuntimeError('Failed to sample box pose in eval ring after 1000 attempts')
+
 def sample_box_pose_for_excavator():
     x_range = [3.4, 4.4]
     y_range = [-1, 1]

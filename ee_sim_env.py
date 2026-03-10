@@ -277,6 +277,7 @@ class BimanualViperXEETask(base.Task):
         obs['images']['top'] = physics.render(height=480, width=640, camera_id='top')
         obs['images']['angle'] = physics.render(height=480, width=640, camera_id='angle')
         obs['images']['vis'] = physics.render(height=480, width=640, camera_id='front_close')
+        # obs['images']['right_pillar'] = physics.render(height=480, width=640, camera_id='right_pillar')
         if self.arm_nums == 2:
             # used in scripted policy to obtain starting pose
             obs['mocap_pose_left'] = np.concatenate([physics.data.mocap_pos[0], physics.data.mocap_quat[0]]).copy()
@@ -447,7 +448,7 @@ class LiftingCubeEETask(BimanualViperXEETask):
             all_contact_pairs.append(contact_pair)
 
         # 判断夹爪和盒子的接触情况，如果夹爪接触盒子，则touch_right_gripper为True
-        touch_right_gripper = ("red_box", "vx300s_right/10_right_gripper_finger") in all_contact_pairs
+        touch_right_gripper = ("red_box", "vx300s_right/10_right_gripper_finger") in all_contact_pairs or ("vx300s_right/10_right_gripper_finger", "red_box") in all_contact_pairs 
         # 判断盒子和桌面的接触情况，如果盒子接触桌面，则touch_table为True
         touch_table = ("red_box", "table") in all_contact_pairs or ("table", "red_box") in all_contact_pairs 
         touch_tray = ("red_box", "yellow_tray") in all_contact_pairs or ("yellow_tray", "red_box") in all_contact_pairs 

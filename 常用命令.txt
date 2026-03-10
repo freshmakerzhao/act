@@ -7,7 +7,7 @@ python3 record_sim_episodes.py \
 # 训练
 python3 imitate_episodes.py \
     --task_name sim_lifting_cube_scripted \
-    --ckpt_dir ./ckpts/sim_lifting_cube \
+    --ckpt_dir ./ckpts/sim_lifting_cube_scripted \
     --policy_class ACT \
     --kl_weight 10 \
     --chunk_size 100 \
@@ -16,13 +16,14 @@ python3 imitate_episodes.py \
     --dim_feedforward 3200 \
     --num_epochs 2000 \
     --lr 1e-5 \
-    --equipment_model vx300s_single \
-    --seed 0
+    --seed 2603 \
+    --equipment_model fairino5_single \
+
 
 # eval
 python3 imitate_episodes.py \
-    --task_name sim_transfer_cube_scripted \
-    --ckpt_dir ./ckpts/sim_transfer_cube \
+    --task_name sim_lifting_cube_scripted \
+    --ckpt_dir ./ckpts/sim_lifting_cube_scripted \
     --policy_class ACT \
     --kl_weight 10 \
     --chunk_size 100 \
@@ -31,6 +32,11 @@ python3 imitate_episodes.py \
     --dim_feedforward 3200 \
     --num_epochs 2000 \
     --lr 1e-5 \
-    --seed 0 \
-    --equipment_model vx300s_single \
+    --seed 2603 \
+    --equipment_model fairino5_single \
+    --clear_videos_before_eval \
     --eval
+
+# 可视化xml
+python3 -m mujoco.viewer --mjcf=/home/zhaoshuai/workspace_act/act/assets/fairino5_single/single_viperx_ee_transfer_cube.xml
+

@@ -149,6 +149,7 @@ class BimanualViperXTask(base.Task):
         obs['images']['top'] = physics.render(height=480, width=640, camera_id='top')
         obs['images']['angle'] = physics.render(height=480, width=640, camera_id='angle')
         obs['images']['vis'] = physics.render(height=480, width=640, camera_id='front_close')
+        obs['images']['right_pillar'] = physics.render(height=480, width=640, camera_id='right_pillar')
 
         return obs
 
@@ -313,7 +314,8 @@ class LiftingCubeTask(BimanualViperXTask):
             contact_pair = (name_geom_1, name_geom_2)
             all_contact_pairs.append(contact_pair)
 
-        touch_right_gripper = ("red_box", "vx300s_right/10_right_gripper_finger") in all_contact_pairs
+        touch_right_gripper = ("red_box", "vx300s_right/10_right_gripper_finger") in all_contact_pairs or ("vx300s_right/10_right_gripper_finger", "red_box") in all_contact_pairs 
+        
         # 判断盒子和桌面的接触情况，如果盒子接触桌面，则touch_table为True
         touch_table = ("red_box", "table") in all_contact_pairs or ("table", "red_box") in all_contact_pairs 
         touch_tray = ("red_box", "yellow_tray") in all_contact_pairs or ("yellow_tray", "red_box") in all_contact_pairs 

@@ -1,8 +1,11 @@
 import torch
 import numpy as np
 import os
+import glob
 import pickle
 import argparse
+import csv
+import json
 import matplotlib.pyplot as plt
 from copy import deepcopy
 from tqdm import tqdm
@@ -11,7 +14,7 @@ from einops import rearrange
 from constants import DT
 from constants import PUPPET_GRIPPER_JOINT_OPEN
 from utils import load_data # data functions
-from utils import sample_box_pose, sample_box_pose_for_excavator, sample_insertion_pose # robot functions
+from utils import sample_box_pose, sample_box_pose_eval, sample_box_pose_for_excavator, sample_insertion_pose # robot functions
 from utils import compute_dict_mean, set_seed, detach_dict # helper functions
 from policy import ACTPolicy, CNNMLPPolicy
 from visualize_episodes import save_videos
@@ -32,6 +35,9 @@ def main(args):
     batch_size_train = args['batch_size']
     batch_size_val = args['batch_size']
     num_epochs = args['num_epochs']
+    clear_videos_before_eval = args['clear_videos_before_eval']
+    eval_noise_type = args['eval_noise_type']
+    eval_noise_level = args['eval_noise_level']
     equipment_model = args['equipment_model'] if "equipment_model" in args else 'vx300s_bimanual'
 
     # get task parameters
@@ -92,10 +98,14 @@ def main(args):
         'seed': args['seed'],
         'temporal_agg': args['temporal_agg'],
         'camera_names': camera_names,
-        'real_robot': not is_sim
+        'real_robot': not is_sim,
+        'eval_noise_type': eval_noise_type,
+        'eval_noise_level': eval_noise_level,
     }
 
     if is_eval:
+        if clear_videos_before_eval:
+            clear_eval_videos(ckpt_dir)
         ckpt_names = [f'policy_best.ckpt']
         results = []
         for ckpt_name in ckpt_names:
@@ -145,18 +155,54 @@ def make_optimizer(policy_class, policy):
     return optimizer
 
 
-def get_image(ts, camera_names):
+def apply_eval_noise(image, noise_type, noise_level):
+    if noise_type == 'none' or noise_level <= 0:
+        return image
+
+    image_float = image.astype(np.float32)
+    height, width, _ = image.shape
+
+    if noise_type == 'gaussian':
+        sigma = noise_level * 255.0
+        noise = np.random.normal(0.0, sigma, image_float.shape).astype(np.float32)
+        image_float = image_float + noise
+    elif noise_type == 'fog':
+        alpha = float(np.clip(noise_level, 0.0, 1.0))
+        image_float = image_float * (1.0 - alpha) + 255.0 * alpha
+    elif noise_type == 'occlusion':
+        area_ratio = float(np.clip(noise_level, 0.0, 0.9))
+        occ_area = int(height * width * area_ratio)
+        occ_side = max(1, int(np.sqrt(occ_area)))
+        occ_h = min(height, occ_side)
+        occ_w = min(width, occ_side)
+        y0 = np.random.randint(0, height - occ_h + 1)
+        x0 = np.random.randint(0, width - occ_w + 1)
+        image_float[y0:y0 + occ_h, x0:x0 + occ_w, :] = 127.0
+    else:
+        raise ValueError(f'Unsupported eval noise type: {noise_type}')
+
+    return np.clip(image_float, 0, 255).astype(np.uint8)
+
+
+def get_image(image_dict, camera_names):
     curr_images = []
     for cam_name in camera_names:
-        curr_image = rearrange(ts.observation['images'][cam_name], 'h w c -> c h w')
+        curr_image = rearrange(image_dict[cam_name], 'h w c -> c h w')
         curr_images.append(curr_image)
     curr_image = np.stack(curr_images, axis=0)
     curr_image = torch.from_numpy(curr_image / 255.0).float().cuda().unsqueeze(0)
     return curr_image
 
+
+def clear_eval_videos(ckpt_dir):
+    video_paths = glob.glob(os.path.join(ckpt_dir, 'video*.mp4'))
+    for video_path in video_paths:
+        os.remove(video_path)
+    print(f'Cleared {len(video_paths)} existing videos from {ckpt_dir}')
+
 # 回放
 def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanual'):
-    set_seed(1000)
+    set_seed(config['seed'])
     ckpt_dir = config['ckpt_dir']
     state_dim = config['state_dim']
     real_robot = config['real_robot']
@@ -167,6 +213,8 @@ def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanu
     max_timesteps = config['episode_len']
     task_name = config['task_name']
     temporal_agg = config['temporal_agg']
+    eval_noise_type = config.get('eval_noise_type', 'none')
+    eval_noise_level = float(config.get('eval_noise_level', 0.0))
     onscreen_cam = 'angle'
 
     # load policy and stats
@@ -205,6 +253,7 @@ def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanu
     num_rollouts = 50
     episode_returns = []
     highest_rewards = []
+    rollout_logs = []
     for rollout_id in range(num_rollouts):
         rollout_id += 0
         ### set task
@@ -216,9 +265,10 @@ def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanu
             if 'excavator' in equipment_model:
                 BOX_POSE[0] = sample_box_pose_for_excavator()
             else:
-                BOX_POSE[0] = sample_box_pose()
+                BOX_POSE[0] = sample_box_pose_eval()
         else:
             raise NotImplementedError
+        init_pose = np.asarray(BOX_POSE[0], dtype=np.float64).copy()
         ts = env.reset()
 
         ### onscreen render
@@ -247,14 +297,22 @@ def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanu
                 ### process previous timestep to get qpos and image_list
                 obs = ts.observation
                 if 'images' in obs:
-                    image_list.append(obs['images'])
+                    video_images = {}
+                    for cam_name, cam_image in obs['images'].items():
+                        video_images[cam_name] = apply_eval_noise(cam_image, eval_noise_type, eval_noise_level)
+                    image_list.append(video_images)
+
+                    policy_images = {}
+                    for cam_name in camera_names:
+                        policy_images[cam_name] = video_images[cam_name]
                 else:
-                    image_list.append({'main': obs['image']})
+                    policy_images = {'main': apply_eval_noise(obs['image'], eval_noise_type, eval_noise_level)}
+                    image_list.append(policy_images)
                 qpos_numpy = np.array(obs['qpos'])
                 qpos = pre_process(qpos_numpy)
                 qpos = torch.from_numpy(qpos).float().cuda().unsqueeze(0)
                 qpos_history[:, t] = qpos
-                curr_image = get_image(ts, camera_names)
+                curr_image = get_image(policy_images, camera_names)
 
                 ### query policy
                 if config['policy_class'] == "ACT":
@@ -300,10 +358,29 @@ def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanu
         episode_returns.append(episode_return)
         episode_highest_reward = np.max(rewards)
         highest_rewards.append(episode_highest_reward)
+        success = int(episode_highest_reward == env_max_reward)
+        init_x = float(init_pose[0]) if init_pose.size > 0 else np.nan
+        init_y = float(init_pose[1]) if init_pose.size > 1 else np.nan
+        init_z = float(init_pose[2]) if init_pose.size > 2 else np.nan
+        rollout_logs.append({
+            'rollout_id': int(rollout_id),
+            'task_name': task_name,
+            'equipment_model': equipment_model,
+            'init_x': init_x,
+            'init_y': init_y,
+            'init_z': init_z,
+            'init_pose': init_pose.tolist(),
+            'episode_return': float(episode_return),
+            'episode_highest_reward': float(episode_highest_reward),
+            'env_max_reward': float(env_max_reward),
+            'success': success,
+        })
         print(f'Rollout {rollout_id}\n{episode_return=}, {episode_highest_reward=}, {env_max_reward=}, Success: {episode_highest_reward==env_max_reward}')
 
         if save_episode:
-            save_videos(image_list, DT, video_path=os.path.join(ckpt_dir, f'video{rollout_id}.mp4'))
+            success_tag = 'succ' if success == 1 else 'fail'
+            video_name = f'video{rollout_id}_{success_tag}_r{int(episode_highest_reward)}_ret{episode_return:.2f}.mp4'
+            save_videos(image_list, DT, video_path=os.path.join(ckpt_dir, video_name))
 
     success_rate = np.mean(np.array(highest_rewards) == env_max_reward)
     avg_return = np.mean(episode_returns)
@@ -322,6 +399,23 @@ def eval_bc(config, ckpt_name, save_episode=True, equipment_model='vx300s_bimanu
         f.write(repr(episode_returns))
         f.write('\n\n')
         f.write(repr(highest_rewards))
+        f.write('\n\n')
+        f.write('run_config:\n')
+        f.write(json.dumps(config, ensure_ascii=False, indent=2))
+
+    rollout_log_file_name = 'result_' + ckpt_name.split('.')[0] + '_rollout_log.csv'
+    rollout_log_path = os.path.join(ckpt_dir, rollout_log_file_name)
+    with open(rollout_log_path, 'w', newline='') as csvfile:
+        fieldnames = [
+            'rollout_id', 'task_name', 'equipment_model',
+            'init_x', 'init_y', 'init_z', 'init_pose',
+            'episode_return', 'episode_highest_reward', 'env_max_reward', 'success'
+        ]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rollout_logs:
+            writer.writerow(row)
+    print(f'Rollout log saved to: {rollout_log_path}')
 
     return success_rate, avg_return
 
@@ -433,6 +527,13 @@ def plot_history(train_history, validation_history, num_epochs, ckpt_dir, seed):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--eval', action='store_true')
+    parser.add_argument('--clear_videos_before_eval', action='store_true',
+                        help='delete existing video*.mp4 in ckpt_dir before eval (default: disabled)')
+    parser.add_argument('--eval_noise_type', action='store', type=str, default='none',
+                        choices=['none', 'gaussian', 'fog', 'occlusion'],
+                        help='noise type applied to eval image input only')
+    parser.add_argument('--eval_noise_level', action='store', type=float, default=0.0,
+                        help='noise intensity for eval image input')
     parser.add_argument('--onscreen_render', action='store_true')
     parser.add_argument('--ckpt_dir', action='store', type=str, help='ckpt_dir', required=True)
     parser.add_argument('--policy_class', action='store', type=str, help='policy_class, capitalize', required=True)

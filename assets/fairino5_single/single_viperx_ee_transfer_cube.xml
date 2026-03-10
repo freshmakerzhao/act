@@ -26,6 +26,78 @@
         <body name="tray" pos="0.4 0.85 0">
             <geom type="cylinder" size="0.08 0.01" rgba="0.8 0.8 0.2 1" name="yellow_tray"/>
         </body>
+
+        <!-- ============  x=[0.0, 0.2], y=[0.4, 0.6] ============ -->
+        <!-- <geom name="box_spawn_region_fill_训练范围"
+              type="box"
+              pos="0.1 0.5 0.0005"
+              size="0.1 0.1 0.0005"
+              rgba="0.1 0.8 0.2 0.12"
+              contype="0"
+              conaffinity="0"/> -->
+        <!-- <geom name="box_spawn_region_edge_top" type="box" pos="0.1 0.6 0.0015" size="0.1 0.001 0.0015" rgba="0.1 0.8 0.2 0.9" contype="0" conaffinity="0"/>
+        <geom name="box_spawn_region_edge_bottom" type="box" pos="0.1 0.4 0.0015" size="0.1 0.001 0.0015" rgba="0.1 0.8 0.2 0.9" contype="0" conaffinity="0"/>
+        <geom name="box_spawn_region_edge_left" type="box" pos="0.0 0.5 0.0015" size="0.001 0.1 0.0015" rgba="0.1 0.8 0.2 0.9" contype="0" conaffinity="0"/>
+        <geom name="box_spawn_region_edge_right" type="box" pos="0.2 0.5 0.0015" size="0.001 0.1 0.0015" rgba="0.1 0.8 0.2 0.9" contype="0" conaffinity="0"/> -->
+        <!-- ============  x=[0.0, 0.2], y=[0.4, 0.6] ============ -->
+
+        <!-- ============  x=[-0.1, 0.3], y=[0.3, 0.7] ============ -->
+        <!-- 这里size指的是从pos往外各扩多大 -->
+        <!-- <geom name="box_spawn_region_eval_fill_与训练同中心，面积是4倍"
+            type="box"
+            pos="0.1 0.5 0.0004"
+            size="0.2 0.2 0.0004"
+            rgba="0.2 0.4 1.0 0.08"
+            contype="0"
+            conaffinity="0"/> -->
+        <!-- ============  x=[-0.1, 0.3], y=[0.3, 0.7] ============ -->
+
+        
+        <!-- ============  x=[-0.2, 0.0], y=[0.4, 0.6] ============ -->
+        <!-- 这里size指的是从pos往外各扩多大 -->
+        <!-- <geom name="box_spawn_region_eval_fill_与训练面积相邻，同大小"
+            type="box"
+            pos="-0.1 0.5 0.0004"
+            size="0.1 0.1 0.0004"
+            rgba="0.2 0.4 1.0 0.08"
+            contype="0"
+            conaffinity="0"/> -->
+        <!-- ============  x=[-0.2, 0.0], y=[0.4, 0.6] ============ -->
+
+        <!-- ============  ring: outer x=[-0.1,0.3], y=[0.3,0.7] minus inner x=[0.0,0.2], y=[0.4,0.6] ============  -->
+        <!-- <geom name="box_spawn_region_ring_top_在训练面积外面扩一圈，提出中间的训练面积"
+            type="box"
+            pos="0.1 0.65 0.0004"
+            size="0.2 0.05 0.0004"
+            rgba="0.2 0.4 1.0 0.10"
+            contype="0"
+            conaffinity="0"/>
+
+        <geom name="box_spawn_region_ring_bottom"
+            type="box"
+            pos="0.1 0.35 0.0004"
+            size="0.2 0.05 0.0004"
+            rgba="0.2 0.4 1.0 0.10"
+            contype="0"
+            conaffinity="0"/>
+
+        <geom name="box_spawn_region_ring_left"
+            type="box"
+            pos="-0.05 0.5 0.0004"
+            size="0.05 0.1 0.0004"
+            rgba="0.2 0.4 1.0 0.10"
+            contype="0"
+            conaffinity="0"/>
+
+        <geom name="box_spawn_region_ring_right"
+            type="box"
+            pos="0.25 0.5 0.0004"
+            size="0.05 0.1 0.0004"
+            rgba="0.2 0.4 1.0 0.10"
+            contype="0"
+            conaffinity="0"/> -->
+        <!-- ============  ring: outer x=[-0.1,0.3], y=[0.3,0.7] minus inner x=[0.0,0.2], y=[0.4,0.6] ============  -->
+
     </worldbody>
 
     <!-- 两个末端执行器 -->

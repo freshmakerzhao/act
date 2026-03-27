@@ -1,0 +1,45 @@
+# VX300s双臂机器人 - 评估配置
+# 用于模型评估
+
+# ==================== 任务配置 ====================
+task:
+  name: sim_transfer_cube_scripted
+  dataset_dir: ./data_sim_episodes/sim_transfer_cube_scripted
+  num_episodes: 50
+  episode_len: 400
+  camera_names:
+    - top
+
+# ==================== 设备配置 ====================
+equipment:
+  model: vx300s_bimanual
+
+# ==================== 训练配置 ====================
+training:
+  policy_class: ACT
+  batch_size: 8
+  num_epochs: 2000
+  lr: 1e-5
+  seed: 1000
+  temporal_agg: false
+
+# ==================== ACT策略参数 ====================
+act:
+  kl_weight: 10
+  chunk_size: 100
+  hidden_dim: 512
+  dim_feedforward: 3200
+
+# ==================== 输出配置 ====================
+output:
+  ckpt_dir: ./ckpts/sim_transfer_cube_scripted
+
+# ==================== 评估配置 ====================
+eval:
+  enabled: true
+  clear_videos_before_eval: true
+  batch_size: 8
+
+# ==================== 渲染配置 ====================
+render:
+  onscreen_render: false

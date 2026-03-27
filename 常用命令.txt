@@ -12,12 +12,12 @@ python3 imitate_episodes.py \
     --kl_weight 10 \
     --chunk_size 100 \
     --hidden_dim 512 \
-    --batch_size 8 \
+    --batch_size 32 \
     --dim_feedforward 3200 \
     --num_epochs 2000 \
     --lr 1e-5 \
-    --seed 2603 \
-    --equipment_model fairino5_single \
+    --seed 1000 \
+    --equipment_model fairino5_single
 
 
 # eval
@@ -32,7 +32,7 @@ python3 imitate_episodes.py \
     --dim_feedforward 3200 \
     --num_epochs 2000 \
     --lr 1e-5 \
-    --seed 2603 \
+    --seed 1000 \
     --equipment_model fairino5_single \
     --clear_videos_before_eval \
     --eval

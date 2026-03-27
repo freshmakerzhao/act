@@ -1,0 +1,19 @@
+# VX300s双臂机器人 - 轨迹生成配置
+# 用于生成仿真演示数据
+
+# ==================== 任务配置 ====================
+task:
+  name: sim_transfer_cube_scripted
+  dataset_dir: ./data_sim_episodes/sim_transfer_cube_scripted
+  num_episodes: 50
+  episode_len: 400
+  camera_names:
+    - top
+
+# ==================== 设备配置 ====================
+equipment:
+  model: vx300s_bimanual
+
+# ==================== 渲染配置 ====================
+render:
+  onscreen_render: false
